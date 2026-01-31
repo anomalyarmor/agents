@@ -1,0 +1,24 @@
+{
+  "name": "anomalyarmor",
+  "owner": "AnomalyArmor <support@anomalyarmor.ai>",
+  "plugins": [
+    {
+      "name": "armor",
+      "description": "Data observability plugin - health monitoring, alerts, schema drift, freshness tracking",
+      "version": "0.1.0",
+      "source": "./",
+      "strict": false,
+      "keywords": ["data-observability", "data-quality", "schema-drift", "freshness", "alerts"],
+      "hooks": {
+        "UserPromptSubmit": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/skill-suggester.sh"
+          }
+        ]
+      }
+    }
+  ],
+  "homepage": "https://github.com/anomalyarmor/agents",
+  "repository": "https://github.com/anomalyarmor/agents"
+}
