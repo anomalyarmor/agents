@@ -1,0 +1,50 @@
+[project]
+name = "armor-mcp"
+version = "0.1.0"
+description = "AnomalyArmor MCP Server - Data observability tools for AI assistants"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "AnomalyArmor", email = "support@anomalyarmor.ai"}
+]
+requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+keywords = ["mcp", "anomalyarmor", "data-observability", "claude", "ai"]
+dependencies = [
+    "fastmcp>=0.1.0",
+    "anomalyarmor>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-asyncio>=0.21",
+]
+
+[project.scripts]
+armor-mcp = "armor_mcp.server:main"
+
+[project.urls]
+Homepage = "https://github.com/anomalyarmor/agents"
+Documentation = "https://docs.anomalyarmor.ai/agents"
+Repository = "https://github.com/anomalyarmor/agents"
+Issues = "https://github.com/anomalyarmor/agents/issues"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/armor_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
