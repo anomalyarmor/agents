@@ -1,22 +1,24 @@
 {
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "anomalyarmor",
-  "owner": "AnomalyArmor <support@anomalyarmor.ai>",
+  "version": "0.1.0",
+  "description": "AI skills and MCP server for AnomalyArmor data observability",
+  "owner": {
+    "name": "AnomalyArmor",
+    "email": "support@anomalyarmor.ai"
+  },
   "plugins": [
     {
       "name": "armor",
       "description": "Data observability plugin - health monitoring, alerts, schema drift, freshness tracking",
       "version": "0.1.0",
+      "author": {
+        "name": "AnomalyArmor",
+        "email": "support@anomalyarmor.ai"
+      },
       "source": "./",
-      "strict": false,
-      "keywords": ["data-observability", "data-quality", "schema-drift", "freshness", "alerts"],
-      "hooks": {
-        "UserPromptSubmit": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/skill-suggester.sh"
-          }
-        ]
-      }
+      "category": "development",
+      "keywords": ["data-observability", "data-quality", "schema-drift", "freshness", "alerts"]
     }
   ],
   "homepage": "https://github.com/anomalyarmor/agents",
