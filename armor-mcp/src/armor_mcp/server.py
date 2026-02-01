@@ -592,6 +592,378 @@ def job_status(job_id: str):
 
 
 # ============================================================================
+# Metrics Tools
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def list_metrics(
+    asset_id: str,
+    metric_type: str | None = None,
+    limit: int = 50,
+):
+    """List data quality metrics for an asset.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        metric_type: Filter by type (row_count, null_rate, distinct_count, etc.)
+        limit: Maximum number of results
+
+    Returns:
+        List of metrics with their current status.
+    """
+    return _get_client().metrics.list(asset_id, metric_type=metric_type, limit=limit)
+
+
+@mcp.tool()
+@sdk_tool
+def get_metrics_summary(asset_id: str):
+    """Get metrics summary for an asset.
+
+    Returns total counts, passing/failing metrics overview.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+
+    Returns:
+        Summary with total_metrics, passing_count, failing_count.
+    """
+    return _get_client().metrics.summary(asset_id)
+
+
+@mcp.tool()
+@sdk_tool
+def create_metric(
+    asset_id: str,
+    metric_type: str,
+    table_path: str,
+    column_name: str | None = None,
+    capture_interval: str = "daily",
+):
+    """Create a data quality metric.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        metric_type: Type of metric (row_count, null_rate, distinct_count, freshness)
+        table_path: Fully qualified table path (e.g., "public.orders")
+        column_name: Column name (required for column-level metrics like null_rate)
+        capture_interval: How often to capture (daily, hourly, weekly)
+
+    Returns:
+        Created metric object with id, name, and status.
+    """
+    return _get_client().metrics.create(
+        asset_id=asset_id,
+        metric_type=metric_type,
+        table_path=table_path,
+        column_name=column_name,
+        capture_interval=capture_interval,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def delete_metric(asset_id: str, metric_id: str):
+    """Delete a metric.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        metric_id: Metric UUID to delete
+
+    Returns:
+        Confirmation of deletion.
+    """
+    _get_client().metrics.delete(asset_id, metric_id)
+    return {"deleted": True, "metric_id": metric_id}
+
+
+@mcp.tool()
+@sdk_tool
+def capture_metric(asset_id: str, metric_id: str):
+    """Trigger immediate capture of a metric.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        metric_id: Metric UUID to capture
+
+    Returns:
+        Capture result with value and timestamp.
+    """
+    return _get_client().metrics.capture(asset_id, metric_id)
+
+
+# ============================================================================
+# Validity Tools
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def list_validity_rules(
+    asset_id: str,
+    rule_type: str | None = None,
+    limit: int = 50,
+):
+    """List validity rules for an asset.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        rule_type: Filter by type (NOT_NULL, UNIQUE, ACCEPTED_VALUES, REGEX, CUSTOM)
+        limit: Maximum number of results
+
+    Returns:
+        List of validity rules with their current status.
+    """
+    return _get_client().validity.list(asset_id, rule_type=rule_type, limit=limit)
+
+
+@mcp.tool()
+@sdk_tool
+def get_validity_summary(asset_id: str):
+    """Get validity summary for an asset.
+
+    Returns total rules, passing/failing overview.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+
+    Returns:
+        Summary with total_rules, passing_count, failing_count.
+    """
+    return _get_client().validity.summary(asset_id)
+
+
+@mcp.tool()
+@sdk_tool
+def create_validity_rule(
+    asset_id: str,
+    rule_type: str,
+    table_path: str,
+    column_name: str | None = None,
+    severity: str = "warning",
+):
+    """Create a validity rule (data quality check).
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        rule_type: Type of rule (NOT_NULL, UNIQUE, ACCEPTED_VALUES, REGEX, CUSTOM)
+        table_path: Fully qualified table path (e.g., "public.orders")
+        column_name: Column name (required for column-level rules)
+        severity: Alert severity if rule fails (info, warning, critical)
+
+    Returns:
+        Created validity rule with id, name, and status.
+    """
+    return _get_client().validity.create(
+        asset_id=asset_id,
+        rule_type=rule_type,
+        table_path=table_path,
+        column_name=column_name,
+        severity=severity,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def delete_validity_rule(asset_id: str, rule_id: str):
+    """Delete a validity rule.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        rule_id: Rule UUID to delete
+
+    Returns:
+        Confirmation of deletion.
+    """
+    _get_client().validity.delete(asset_id, rule_id)
+    return {"deleted": True, "rule_id": rule_id}
+
+
+@mcp.tool()
+@sdk_tool
+def check_validity_rule(asset_id: str, rule_id: str):
+    """Run a validity check immediately.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        rule_id: Rule UUID to check
+
+    Returns:
+        Check result with status (passing/failing) and details.
+    """
+    return _get_client().validity.check(asset_id, rule_id)
+
+
+# ============================================================================
+# Tags Tools
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def list_tags(
+    asset: str,
+    category: str | None = None,
+    limit: int = 100,
+):
+    """List tags for an asset.
+
+    Args:
+        asset: Asset UUID or qualified name (e.g., "postgresql.analytics")
+        category: Filter by category (business, technical, governance)
+        limit: Maximum number of results
+
+    Returns:
+        List of tags with name, category, and object_path.
+    """
+    return _get_client().tags.list(asset=asset, category=category, limit=limit)
+
+
+@mcp.tool()
+@sdk_tool
+def create_tag(
+    asset: str,
+    name: str,
+    object_path: str,
+    object_type: str = "table",
+    category: str = "business",
+    description: str | None = None,
+):
+    """Create a tag on a database object.
+
+    Args:
+        asset: Asset UUID or qualified name
+        name: Tag name (e.g., "pii_data", "financial_reporting")
+        object_path: Path to object (e.g., "schema.table" or "schema.table.column")
+        object_type: Type of object: "table" or "column"
+        category: Tag category: "business", "technical", or "governance"
+        description: Optional tag description
+
+    Returns:
+        Created tag with id, name, and category.
+    """
+    return _get_client().tags.create(
+        asset=asset,
+        name=name,
+        object_path=object_path,
+        object_type=object_type,
+        category=category,
+        description=description,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def apply_tags(
+    asset: str,
+    tag_names: list[str],
+    object_paths: list[str],
+    category: str = "business",
+):
+    """Apply multiple tags to multiple objects within an asset.
+
+    Args:
+        asset: Asset UUID or qualified name
+        tag_names: List of tag names to apply
+        object_paths: List of object paths to tag
+        category: Tag category for all tags
+
+    Returns:
+        Result with applied and failed counts.
+    """
+    return _get_client().tags.apply(
+        asset=asset,
+        tag_names=tag_names,
+        object_paths=object_paths,
+        category=category,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def bulk_apply_tag(
+    tag_name: str,
+    asset_ids: list[str],
+    category: str = "business",
+):
+    """Apply a tag to multiple assets.
+
+    Args:
+        tag_name: Tag name to apply
+        asset_ids: List of asset UUIDs or qualified names
+        category: Tag category
+
+    Returns:
+        Result with applied and failed counts.
+    """
+    return _get_client().tags.bulk_apply(
+        tag_name=tag_name,
+        asset_ids=asset_ids,
+        category=category,
+    )
+
+
+# ============================================================================
+# Coverage Tools
+# ============================================================================
+
+
+@mcp.tool()
+def get_coverage_summary():
+    """Get monitoring coverage summary across all assets.
+
+    Analyzes what percentage of assets have:
+    - Freshness monitoring
+    - Health status
+
+    Returns:
+        Coverage summary with total_assets, freshness_monitored, and health status.
+    """
+    try:
+        client = _get_client()
+
+        # Get all assets
+        assets = client.assets.list(limit=100)
+        total_assets = len(assets)
+
+        # Get freshness schedules
+        try:
+            freshness_schedules = client.freshness.list_schedules(limit=100)
+            freshness_monitored = len(
+                set(
+                    s.asset_id
+                    for s in freshness_schedules
+                    if hasattr(s, "asset_id") and s.asset_id
+                )
+            )
+        except Exception:
+            freshness_monitored = 0
+
+        # Get health summary for overall status
+        try:
+            health = client.health.summary()
+            health_data = (
+                health.model_dump() if hasattr(health, "model_dump") else str(health)
+            )
+        except Exception:
+            health_data = {"error": "Could not fetch health summary"}
+
+        return {
+            "total_assets": total_assets,
+            "freshness_monitored": freshness_monitored,
+            "freshness_coverage_percent": (
+                round(100 * freshness_monitored / total_assets)
+                if total_assets > 0
+                else 0
+            ),
+            "health_status": health_data,
+        }
+    except Exception as e:
+        return {"error": type(e).__name__, "message": str(e)}
+
+
+# ============================================================================
 # Server Entry Point
 # ============================================================================
 
