@@ -962,10 +962,9 @@ def dry_run_schema(
 
     Returns:
         total_changes: Total schema changes detected
-        critical_changes: Number of critical changes
-        warning_changes: Number of warning changes
-        info_changes: Number of info changes
+        changes_summary: Breakdown by change type (dict)
         sample_changes: Sample of detected changes
+        recommendation: Human-readable recommendation
     """
     return _get_client().schema.dry_run(
         asset_id=asset_id,
@@ -993,9 +992,9 @@ def preview_alerts(
         lookback_days: Days of alert history to analyze (default 7)
 
     Returns:
-        total_matched: Number of historical alerts matching
-        would_send_count: Alerts that would have been sent
-        alert_rate_per_day: Average alerts per day
+        alerts_would_match: Number of historical alerts matching
+        alerts_by_type: Breakdown by event type (dict)
+        alerts_by_severity: Breakdown by severity (dict)
         sample_alerts: Sample of matching alerts
     """
     return _get_client().alerts.preview(

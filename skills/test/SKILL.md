@@ -92,15 +92,15 @@ result = client.schema.dry_run(
 
 print(f"Schema Drift Dry-Run Results:")
 print(f"  Total changes detected: {result.total_changes}")
-print(f"  Critical changes: {result.critical_changes}")
-print(f"  Warning changes: {result.warning_changes}")
-print(f"  Info changes: {result.info_changes}")
+print(f"  Changes by type: {result.changes_summary}")
 print()
 
 if result.sample_changes:
     print("Sample changes:")
     for change in result.sample_changes[:5]:
-        print(f"  - {change.change_type}: {change.object_name}")
+        print(f"  - {change.change_type}: {change.table_name}")
+
+print(f"\nRecommendation: {result.recommendation}")
 ```
 
 ### Preview Alert Rule Matches
@@ -117,16 +117,16 @@ result = client.alerts.preview(
     lookback_days=7
 )
 
-print(f"Lookback: {result.lookback_days} days")
-print(f"Total alerts matched: {result.total_matched}")
-print(f"Would send: {result.would_send_count}")
-print(f"Alert rate: {result.alert_rate_per_day:.1f}/day")
+print(f"Lookback: {result.lookback_hours} hours")
+print(f"Alerts would match: {result.alerts_would_match}")
+print(f"By severity: {result.alerts_by_severity}")
+print(f"By type: {result.alerts_by_type}")
 print()
 
 if result.sample_alerts:
     print("Sample alerts:")
     for alert in result.sample_alerts[:5]:
-        print(f"  - {alert.timestamp}: {alert.event_type}")
+        print(f"  - {alert.triggered_at}: {alert.message}")
 ```
 
 ### Dry-Run Metrics Threshold
