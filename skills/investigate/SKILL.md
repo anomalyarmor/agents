@@ -108,14 +108,14 @@ alerts = client.alerts.list(
 )
 
 for alert in alerts:
-    print(f"Alert: {alert.title}")
+    print(f"Alert: {alert.message}")
     print(f"  Severity: {alert.severity}")
     print(f"  Triggered: {alert.triggered_at}")
-    print(f"  Description: {alert.message}")
+    print(f"  Asset: {alert.qualified_name}")
 
 # Ask AI about the alert
 response = client.intelligence.ask(
-    question=f"Explain this alert and what caused it: {alerts[0].title}",
+    question=f"Explain this alert and what caused it: {alerts[0].message}",
     asset_ids=["asset-uuid"]
 )
 print(f"\nAI Explanation: {response.answer}")
