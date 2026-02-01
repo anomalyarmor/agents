@@ -76,7 +76,7 @@ jobs:
       - name: Update version (if manual trigger)
         if: github.event_name == 'workflow_dispatch'
         run: |
-          sed -i "s/version = .*/version = \"$${{ inputs.version }}\"/" pyproject.toml
+          sed -i "s/version = .*/version = \"${{ inputs.version }}\"/" pyproject.toml
 
       - name: Build package
         run: python -m build
