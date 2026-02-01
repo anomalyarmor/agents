@@ -146,10 +146,10 @@ result = client.metrics.dry_run(
     lookback_days=14,
 )
 
-print(f"Metric Dry-Run: {result.metric_type} on {result.column_name}")
+print(f"Metric Dry-Run: {result.metric_type}")
 print(f"Total snapshots analyzed: {result.total_snapshots}")
-print(f"Anomalies detected: {result.anomaly_count}")
-print(f"Anomaly rate: {result.anomaly_rate_percent:.1f}%")
+print(f"Would alert count: {result.would_alert_count}")
+print(f"Alert rate: {result.alert_rate_percent:.1f}%")
 print()
 print(f"Recommendation: {result.recommendation}")
 ```

@@ -1029,8 +1029,8 @@ def dry_run_metric(
 
     Returns:
         total_snapshots: Data points analyzed
-        anomaly_count: Anomalies detected
-        anomaly_rate_percent: Percentage of anomalies
+        would_alert_count: Times threshold would have fired
+        alert_rate_percent: Percentage of checks that would alert
         recommendation: Human-readable recommendation
     """
     return _get_client().metrics.dry_run(
