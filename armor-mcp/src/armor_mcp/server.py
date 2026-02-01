@@ -160,6 +160,97 @@ def get_alert_summary():
     return _get_client().alerts.summary()
 
 
+@mcp.tool()
+@sdk_tool
+def list_inbox_alerts(
+    state: str | None = None,
+    severity: str | None = None,
+    event_type: str | None = None,
+    limit: int = 25,
+):
+    """List inbox alerts that can be acknowledged, resolved, or dismissed.
+
+    Unlike list_alerts(), this returns alerts from the inbox that support
+    lifecycle actions (acknowledge, resolve, dismiss, snooze).
+
+    Args:
+        state: Filter by state ("new", "acknowledged", "resolved", "dismissed")
+        severity: Filter by severity ("info", "warning", "critical")
+        event_type: Filter by event type (e.g., "freshness_stale", "schema_drift")
+        limit: Maximum number of results (default 25, max 100)
+
+    Returns:
+        List of inbox alerts with id, title, severity, alert_state, event_type, etc.
+    """
+    return _get_client().alerts.list_inbox(
+        state=state,
+        severity=severity,
+        event_type=event_type,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def acknowledge_alert(alert_id: str, notes: str | None = None):
+    """Acknowledge an alert - mark it as seen/being worked on.
+
+    Args:
+        alert_id: Alert public UUID (from list_inbox_alerts)
+        notes: Optional notes about the acknowledgment
+
+    Returns:
+        Dict with alert id and new status.
+    """
+    return _get_client().alerts.acknowledge(alert_id, notes=notes)
+
+
+@mcp.tool()
+@sdk_tool
+def resolve_alert(alert_id: str, notes: str | None = None):
+    """Resolve an alert - mark it as fixed.
+
+    Args:
+        alert_id: Alert public UUID (from list_inbox_alerts)
+        notes: Optional resolution notes
+
+    Returns:
+        Dict with alert id and new status.
+    """
+    return _get_client().alerts.resolve(alert_id, notes=notes)
+
+
+@mcp.tool()
+@sdk_tool
+def dismiss_alert(alert_id: str, notes: str | None = None):
+    """Dismiss an alert - mark it as false positive or expected behavior.
+
+    Args:
+        alert_id: Alert public UUID (from list_inbox_alerts)
+        notes: Optional notes explaining the dismissal
+
+    Returns:
+        Dict with alert id and new status.
+    """
+    return _get_client().alerts.dismiss(alert_id, notes=notes)
+
+
+@mcp.tool()
+@sdk_tool
+def snooze_alert(alert_id: str, duration_hours: int, notes: str | None = None):
+    """Snooze an alert for a specified duration.
+
+    Args:
+        alert_id: Alert public UUID (from list_inbox_alerts)
+        duration_hours: Hours to snooze (1-720, max 30 days)
+        notes: Optional notes
+
+    Returns:
+        Dict with alert id, status, and snoozed_until timestamp.
+    """
+    return _get_client().alerts.snooze(alert_id, duration_hours=duration_hours, notes=notes)
+
+
 # ============================================================================
 # Asset Tools
 # ============================================================================
