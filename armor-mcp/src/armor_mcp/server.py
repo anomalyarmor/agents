@@ -16,7 +16,7 @@ from typing import Any, Callable, TypeVar
 
 from fastmcp import FastMCP
 
-mcp = FastMCP("armor-mcp", description="AnomalyArmor Data Observability Tools")
+mcp = FastMCP("armor-mcp", instructions="AnomalyArmor Data Observability Tools")
 
 T = TypeVar("T")
 
