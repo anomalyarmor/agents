@@ -111,7 +111,7 @@ for alert in alerts:
     print(f"Alert: {alert.title}")
     print(f"  Severity: {alert.severity}")
     print(f"  Triggered: {alert.triggered_at}")
-    print(f"  Description: {alert.description}")
+    print(f"  Description: {alert.message}")
 
 # Ask AI about the alert
 response = client.intelligence.ask(

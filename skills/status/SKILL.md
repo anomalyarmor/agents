@@ -60,8 +60,8 @@ if health.needs_attention:
     print("Items Needing Attention:")
     for item in health.needs_attention:
         print(f"  [{item.severity.upper()}] {item.title}")
-        if item.description:
-            print(f"    {item.description}")
+        if item.asset_name:
+            print(f"    Asset: {item.asset_name}")
 else:
     print("No issues requiring attention.")
 ```
@@ -78,11 +78,11 @@ Component Status:
 
 Items Needing Attention:
   [CRITICAL] orders table stale for 6 hours
-    Table public.orders has not been updated since 2026-01-30 06:00:00
+    Asset: orders
   [WARNING] Schema change detected in users table
-    Column 'phone' was added
+    Asset: users
   [INFO] New alert rule triggered
-    Freshness check failed for customers table
+    Asset: customers
 ```
 
 ## Follow-up Actions

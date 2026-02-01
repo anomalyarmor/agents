@@ -93,7 +93,7 @@ alerts = client.alerts.list(
 
 for alert in alerts:
     print(f"[{alert.severity}] {alert.title}")
-    print(f"  {alert.description}")
+    print(f"  {alert.message}")
 ```
 
 ### List Alert Rules
