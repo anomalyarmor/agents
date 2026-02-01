@@ -62,6 +62,8 @@ api_key: aa_live_your_key_here
 | `/armor:lineage` | Data lineage exploration | "What depends on this table?" |
 | `/armor:profile` | Table profiling and stats | "Profile the orders table" |
 | `/armor:coverage` | Monitoring coverage analysis | "What tables have no alerts?" |
+| `/armor:test` | Dry-run configurations before enabling | "Test this freshness threshold" |
+| `/armor:recommend` | AI-driven monitoring recommendations | "What should I monitor?" |
 
 ## MCP Tools
 
@@ -125,6 +127,18 @@ The MCP server exposes these tools:
 
 ### Coverage
 - `get_coverage_summary()` - Get monitoring coverage across all assets
+
+### Dry-Run / Preview (TECH-771)
+- `dry_run_freshness(asset_id, table_path, expected_interval_hours, lookback_days)` - Test freshness threshold
+- `dry_run_schema(asset_id, table_path, lookback_days)` - Preview schema drift detection
+- `preview_alerts(rule_id, event_types, severities, lookback_days)` - Preview alert rule matches
+- `dry_run_metric(asset_id, table_path, metric_type, column_name, sensitivity, lookback_days)` - Test metric threshold
+
+### Recommendations (TECH-772)
+- `recommend_freshness(asset_id, min_confidence, limit, include_monitored)` - Suggest freshness schedules
+- `recommend_metrics(asset_id, table_path, min_confidence, limit)` - Suggest quality metrics
+- `get_coverage_recommendations(asset_id, limit)` - Identify monitoring gaps
+- `recommend_thresholds(asset_id, days, limit)` - Suggest threshold adjustments
 
 ### Jobs
 - `job_status(job_id)` - Check async job status
