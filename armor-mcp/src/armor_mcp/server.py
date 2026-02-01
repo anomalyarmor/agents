@@ -928,6 +928,7 @@ def get_coverage_summary():
         total_assets = len(assets)
 
         # Get freshness schedules
+        freshness_error = None
         try:
             freshness_schedules = client.freshness.list_schedules(limit=100)
             freshness_monitored = len(
@@ -937,8 +938,9 @@ def get_coverage_summary():
                     if hasattr(s, "asset_id") and s.asset_id
                 )
             )
-        except Exception:
-            freshness_monitored = 0
+        except Exception as e:
+            freshness_monitored = None
+            freshness_error = f"Could not fetch freshness schedules: {e}"
 
         # Get health summary for overall status
         try:
@@ -949,16 +951,21 @@ def get_coverage_summary():
         except Exception:
             health_data = {"error": "Could not fetch health summary"}
 
-        return {
+        result = {
             "total_assets": total_assets,
             "freshness_monitored": freshness_monitored,
             "freshness_coverage_percent": (
                 round(100 * freshness_monitored / total_assets)
-                if total_assets > 0
-                else 0
+                if total_assets > 0 and freshness_monitored is not None
+                else None
             ),
             "health_status": health_data,
         }
+
+        if freshness_error:
+            result["freshness_error"] = freshness_error
+
+        return result
     except Exception as e:
         return {"error": type(e).__name__, "message": str(e)}
 
