@@ -55,7 +55,6 @@ api_key: aa_live_your_key_here
 | `/armor:monitor` | Set up monitoring | "Monitor freshness for orders table" |
 | `/armor:ask` | Natural language Q&A | "What tables contain customer data?" |
 | `/armor:analyze` | Trigger AI analysis | "Analyze the finance schema" |
-| `/armor:start` | Guided onboarding | "Get me started with AnomalyArmor" |
 | `/armor:quality` | Data quality checks | "Add null check for customer_id column" |
 | `/armor:tags` | Asset tagging and classification | "Tag this table as PII" |
 | `/armor:investigate` | Root cause analysis | "Why is this table stale?" |
