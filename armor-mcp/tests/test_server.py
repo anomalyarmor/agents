@@ -69,7 +69,6 @@ class TestGetClient:
     def test_get_client_raises_without_sdk(self):
         """Test that _get_client raises RuntimeError if SDK not installed."""
         import armor_mcp.server as server_module
-        from armor_mcp.server import _get_client
 
         # Reset singleton
         server_module._client = None
