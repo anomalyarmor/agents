@@ -72,7 +72,7 @@ alerts = client.alerts.list(
 
 print(f"Alerts since yesterday: {len(alerts)}")
 for alert in alerts:
-    print(f"  [{alert.severity}] {alert.title}")
+    print(f"  [{alert.severity}] {alert.message}")
     print(f"    Asset: {alert.asset_name}")
     print(f"    Time: {alert.triggered_at}")
 ```
@@ -92,8 +92,8 @@ alerts = client.alerts.list(
 )
 
 for alert in alerts:
-    print(f"[{alert.severity}] {alert.title}")
-    print(f"  {alert.message}")
+    print(f"[{alert.severity}] {alert.message}")
+    print(f"  Asset: {alert.qualified_name} | {alert.triggered_at}")
 ```
 
 ### List Alert Rules
