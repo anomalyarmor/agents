@@ -56,6 +56,12 @@ api_key: aa_live_your_key_here
 | `/armor:ask` | Natural language Q&A | "What tables contain customer data?" |
 | `/armor:analyze` | Trigger AI analysis | "Analyze the finance schema" |
 | `/armor:start` | Guided onboarding | "Get me started with AnomalyArmor" |
+| `/armor:quality` | Data quality checks | "Add null check for customer_id column" |
+| `/armor:tags` | Asset tagging and classification | "Tag this table as PII" |
+| `/armor:investigate` | Root cause analysis | "Why is this table stale?" |
+| `/armor:lineage` | Data lineage exploration | "What depends on this table?" |
+| `/armor:profile` | Table profiling and stats | "Profile the orders table" |
+| `/armor:coverage` | Monitoring coverage analysis | "What tables have no alerts?" |
 
 ## MCP Tools
 
@@ -96,6 +102,29 @@ The MCP server exposes these tools:
 
 ### Lineage
 - `get_lineage(asset_id, depth, direction)` - Get lineage graph
+
+### Metrics
+- `list_metrics(asset_id, metric_type, limit)` - List metrics for an asset
+- `get_metrics_summary(asset_id)` - Get metrics summary
+- `create_metric(asset_id, metric_type, table_path, column_name, capture_interval)` - Create metric
+- `delete_metric(asset_id, metric_id)` - Delete metric
+- `capture_metric(asset_id, metric_id)` - Trigger immediate capture
+
+### Validity
+- `list_validity_rules(asset_id, rule_type, limit)` - List validity rules
+- `get_validity_summary(asset_id)` - Get validity summary
+- `create_validity_rule(asset_id, rule_type, table_path, column_name, severity)` - Create rule
+- `delete_validity_rule(asset_id, rule_id)` - Delete rule
+- `check_validity_rule(asset_id, rule_id)` - Run check immediately
+
+### Tags
+- `list_tags(asset, category, limit)` - List tags for an asset
+- `create_tag(asset, name, object_path, object_type, category, description)` - Create tag
+- `apply_tags(asset, tag_names, object_paths, category)` - Apply tags to objects
+- `bulk_apply_tag(tag_name, asset_ids, category)` - Apply tag to multiple assets
+
+### Coverage
+- `get_coverage_summary()` - Get monitoring coverage across all assets
 
 ### Jobs
 - `job_status(job_id)` - Check async job status
