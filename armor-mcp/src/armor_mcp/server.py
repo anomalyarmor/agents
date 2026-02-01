@@ -905,6 +905,290 @@ def bulk_apply_tag(
 
 
 # ============================================================================
+# Dry-Run / Preview Tools (TECH-771)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def dry_run_freshness(
+    asset_id: str,
+    table_path: str,
+    expected_interval_hours: float,
+    lookback_days: int = 7,
+):
+    """Dry-run a freshness threshold to see what alerts would fire.
+
+    Uses historical data to predict alert frequency before enabling monitoring.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        table_path: Table path (e.g., "public.orders")
+        expected_interval_hours: Proposed threshold in hours
+        lookback_days: Historical period to analyze (default 7)
+
+    Returns:
+        total_checks: Number of data points analyzed
+        would_alert_count: Times threshold would have fired
+        alert_rate_percent: Percentage of checks that would alert
+        current_age_hours: Current data age
+        would_alert_now: Whether this would alert right now
+        sample_alerts: Sample of times threshold would have fired
+        recommendation: Human-readable recommendation
+    """
+    return _get_client().freshness.dry_run(
+        asset_id=asset_id,
+        table_path=table_path,
+        expected_interval_hours=expected_interval_hours,
+        lookback_days=lookback_days,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def dry_run_schema(
+    asset_id: str,
+    table_path: str | None = None,
+    lookback_days: int = 30,
+):
+    """Dry-run schema drift detection settings.
+
+    Tests what schema changes would be detected with proposed settings.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        table_path: Filter to specific table (optional)
+        lookback_days: Days of history to analyze (default 30)
+
+    Returns:
+        total_changes: Total schema changes detected
+        changes_summary: Breakdown by change type (dict)
+        sample_changes: Sample of detected changes
+        recommendation: Human-readable recommendation
+    """
+    return _get_client().schema.dry_run(
+        asset_id=asset_id,
+        table_path=table_path,
+        lookback_days=lookback_days,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def preview_alerts(
+    rule_id: str | None = None,
+    event_types: list[str] | None = None,
+    severities: list[str] | None = None,
+    lookback_days: int = 7,
+):
+    """Preview what alerts would match a rule configuration.
+
+    Shows how many alerts would fire based on historical data.
+
+    Args:
+        rule_id: Existing rule UUID to preview (optional)
+        event_types: Event types to match (e.g., ["freshness_stale", "schema_drift"])
+        severities: Severities to match (e.g., ["critical", "warning"])
+        lookback_days: Days of alert history to analyze (default 7)
+
+    Returns:
+        alerts_would_match: Number of historical alerts matching
+        alerts_by_type: Breakdown by event type (dict)
+        alerts_by_severity: Breakdown by severity (dict)
+        sample_alerts: Sample of matching alerts
+    """
+    return _get_client().alerts.preview(
+        rule_id=rule_id,
+        event_types=event_types,
+        severities=severities,
+        lookback_days=lookback_days,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def dry_run_metric(
+    asset_id: str,
+    table_path: str,
+    metric_type: str,
+    column_name: str | None = None,
+    sensitivity: float = 1.0,
+    lookback_days: int = 30,
+):
+    """Dry-run a metric threshold to see what alerts would fire.
+
+    Tests a metric against historical values.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        table_path: Table path (e.g., "public.orders")
+        metric_type: Type of metric (null_percent, unique_count, row_count, etc.)
+        column_name: Column for column-level metrics (optional)
+        sensitivity: Sensitivity multiplier for anomaly detection
+        lookback_days: Historical period to analyze (default 30)
+
+    Returns:
+        total_snapshots: Data points analyzed
+        would_alert_count: Times threshold would have fired
+        alert_rate_percent: Percentage of checks that would alert
+        recommendation: Human-readable recommendation
+    """
+    return _get_client().metrics.dry_run(
+        asset_id=asset_id,
+        table_path=table_path,
+        metric_type=metric_type,
+        column_name=column_name,
+        sensitivity=sensitivity,
+        lookback_days=lookback_days,
+    )
+
+
+# ============================================================================
+# Recommendation Tools (TECH-772)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def recommend_freshness(
+    asset_id: str,
+    min_confidence: float = 0.5,
+    limit: int = 20,
+    include_monitored: bool = False,
+):
+    """Get AI-driven recommendations for freshness monitoring.
+
+    Analyzes update patterns to suggest tables and thresholds for freshness monitoring.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        min_confidence: Minimum confidence threshold (0.0-1.0, default 0.5)
+        limit: Maximum recommendations to return (default 20)
+        include_monitored: Include already-monitored tables (default False)
+
+    Returns:
+        recommendations: List of table recommendations with:
+            - table_path: Table identifier
+            - suggested_check_interval: e.g., "1h", "24h"
+            - suggested_threshold_hours: Staleness threshold
+            - detected_frequency: "hourly", "daily", "weekly", "irregular"
+            - confidence: 0.0-1.0
+            - reasoning: Human-readable explanation
+            - data_points: Number of history entries analyzed
+        tables_analyzed: Total tables analyzed
+        tables_with_recommendations: Tables with high-confidence recommendations
+    """
+    return _get_client().recommendations.freshness(
+        asset_id=asset_id,
+        min_confidence=min_confidence,
+        limit=limit,
+        include_monitored=include_monitored,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def recommend_metrics(
+    asset_id: str,
+    table_path: str | None = None,
+    min_confidence: float = 0.5,
+    limit: int = 50,
+):
+    """Get AI-driven recommendations for data quality metrics.
+
+    Analyzes column types and naming patterns to suggest quality checks.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        table_path: Specific table to analyze (optional, None = all tables)
+        min_confidence: Minimum confidence threshold (0.0-1.0, default 0.5)
+        limit: Maximum recommendations to return (default 50)
+
+    Returns:
+        recommendations: List of metric recommendations with:
+            - table_path: Table identifier
+            - column_name: Column identifier
+            - suggested_metric_type: "referential_integrity", "null_rate", etc.
+            - reasoning: Why this metric makes sense
+            - confidence: 0.0-1.0
+        columns_analyzed: Total columns analyzed
+        columns_with_recommendations: Columns with recommendations
+    """
+    return _get_client().recommendations.metrics(
+        asset_id=asset_id,
+        table_path=table_path,
+        min_confidence=min_confidence,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def get_coverage_recommendations(
+    asset_id: str,
+    limit: int = 20,
+):
+    """Analyze monitoring coverage and identify gaps.
+
+    Identifies high-value unmonitored tables prioritized by importance.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        limit: Maximum recommendations to return (default 20)
+
+    Returns:
+        total_tables: Total tables in asset
+        monitored_tables: Currently monitored count
+        coverage_percentage: Monitoring coverage (0-100)
+        recommendations: Prioritized list of unmonitored tables with:
+            - table_path: Table identifier
+            - importance_score: 0.0-1.0
+            - row_count: Estimated rows
+            - reasoning: Why this table is important
+    """
+    return _get_client().recommendations.coverage(
+        asset_id=asset_id,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def recommend_thresholds(
+    asset_id: str,
+    days: int = 30,
+    limit: int = 10,
+):
+    """Get threshold adjustment suggestions to reduce alert fatigue.
+
+    Analyzes historical alerts to suggest threshold tuning.
+
+    Args:
+        asset_id: Asset UUID or qualified name
+        days: Historical window for analysis (default 30)
+        limit: Maximum recommendations to return (default 10)
+
+    Returns:
+        recommendations: List of threshold adjustments with:
+            - table_path: Table identifier
+            - current_threshold: Current setting
+            - suggested_threshold: Recommended adjustment
+            - direction: "increase" or "decrease"
+            - reasoning: Why this change
+            - confidence: 0.0-1.0
+            - historical_alerts: Alert count in period
+            - projected_reduction: Estimated alert reduction
+        monitored_items_analyzed: Items analyzed
+        items_with_recommendations: Items needing adjustment
+    """
+    return _get_client().recommendations.thresholds(
+        asset_id=asset_id,
+        days=days,
+        limit=limit,
+    )
+
+
+# ============================================================================
 # Coverage Tools
 # ============================================================================
 
