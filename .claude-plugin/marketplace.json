@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "anomalyarmor",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "AI skills and MCP server for AnomalyArmor data observability",
   "owner": {
     "name": "AnomalyArmor",
@@ -11,7 +11,7 @@
     {
       "name": "armor",
       "description": "Data observability plugin - health monitoring, alerts, schema drift, freshness tracking",
-      "version": "0.1.0",
+      "version": "0.2.1",
       "author": {
         "name": "AnomalyArmor",
         "email": "support@anomalyarmor.ai"
