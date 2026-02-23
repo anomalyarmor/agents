@@ -109,6 +109,24 @@ def health_summary():
 
 
 # ============================================================================
+# Briefings Tools (TECH-807)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def get_todays_briefing():
+    """Get today's daily briefing digest with key insights and alerts summary.
+
+    Generates the briefing on-demand if it hasn't been created yet today.
+
+    Returns:
+        Briefing data including title, sections, and insights.
+    """
+    return _get_client().briefings.today()
+
+
+# ============================================================================
 # Alert Tools
 # ============================================================================
 
@@ -207,32 +225,90 @@ def acknowledge_alert(alert_id: str, notes: str | None = None):
 
 @mcp.tool()
 @sdk_tool
-def resolve_alert(alert_id: str, notes: str | None = None):
-    """Resolve an alert - mark it as fixed.
+def resolve_alert(
+    alert_id: str,
+    notes: str | None = None,
+    action_category: str | None = None,
+    action_detail: str | None = None,
+    root_cause_category: str | None = None,
+    root_cause_detail: str | None = None,
+    pr_url: str | None = None,
+    job_run_id: str | None = None,
+    external_link: str | None = None,
+):
+    """Resolve an alert with optional resolution metadata.
 
     Args:
         alert_id: Alert public UUID (from list_inbox_alerts)
         notes: Optional resolution notes
+        action_category: One of: reran_job, updated_sql, rolled_back, contacted_producer,
+                         false_positive, expected_behavior, configuration_fix, code_change, other
+        action_detail: Details about the action taken
+        root_cause_category: One of: pipeline_failure, schema_change, data_source_issue,
+                             configuration_error, expected_behavior, code_change, infrastructure, unknown
+        root_cause_detail: Details about the root cause
+        pr_url: URL to the pull request that fixes this
+        job_run_id: ID of the job run related to the fix
+        external_link: Link to external tracking system
 
     Returns:
         Dict with alert id and new status.
     """
-    return _get_client().alerts.resolve(alert_id, notes=notes)
+    return _get_client().alerts.resolve(
+        alert_id,
+        notes=notes,
+        action_category=action_category,
+        action_detail=action_detail,
+        root_cause_category=root_cause_category,
+        root_cause_detail=root_cause_detail,
+        pr_url=pr_url,
+        job_run_id=job_run_id,
+        external_link=external_link,
+    )
 
 
 @mcp.tool()
 @sdk_tool
-def dismiss_alert(alert_id: str, notes: str | None = None):
-    """Dismiss an alert - mark it as false positive or expected behavior.
+def dismiss_alert(
+    alert_id: str,
+    notes: str | None = None,
+    action_category: str | None = None,
+    action_detail: str | None = None,
+    root_cause_category: str | None = None,
+    root_cause_detail: str | None = None,
+    pr_url: str | None = None,
+    job_run_id: str | None = None,
+    external_link: str | None = None,
+):
+    """Dismiss an alert with optional resolution metadata.
 
     Args:
         alert_id: Alert public UUID (from list_inbox_alerts)
         notes: Optional notes explaining the dismissal
+        action_category: One of: reran_job, updated_sql, rolled_back, contacted_producer,
+                         false_positive, expected_behavior, configuration_fix, code_change, other
+        action_detail: Details about the action taken
+        root_cause_category: One of: pipeline_failure, schema_change, data_source_issue,
+                             configuration_error, expected_behavior, code_change, infrastructure, unknown
+        root_cause_detail: Details about the root cause
+        pr_url: URL to the pull request
+        job_run_id: ID of the related job run
+        external_link: Link to external tracking system
 
     Returns:
         Dict with alert id and new status.
     """
-    return _get_client().alerts.dismiss(alert_id, notes=notes)
+    return _get_client().alerts.dismiss(
+        alert_id,
+        notes=notes,
+        action_category=action_category,
+        action_detail=action_detail,
+        root_cause_category=root_cause_category,
+        root_cause_detail=root_cause_detail,
+        pr_url=pr_url,
+        job_run_id=job_run_id,
+        external_link=external_link,
+    )
 
 
 @mcp.tool()
@@ -248,7 +324,9 @@ def snooze_alert(alert_id: str, duration_hours: int, notes: str | None = None):
     Returns:
         Dict with alert id, status, and snoozed_until timestamp.
     """
-    return _get_client().alerts.snooze(alert_id, duration_hours=duration_hours, notes=notes)
+    return _get_client().alerts.snooze(
+        alert_id, duration_hours=duration_hours, notes=notes
+    )
 
 
 # ============================================================================
