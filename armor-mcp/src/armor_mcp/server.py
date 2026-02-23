@@ -3,14 +3,21 @@
 This module provides an MCP server that wraps the AnomalyArmor Python SDK,
 exposing data observability tools to AI assistants like Claude Code and Cursor.
 
+Supports two transport modes:
+    - stdio (default): API key auth via ARMOR_API_KEY env var
+    - HTTP: Clerk OAuth 2.1 via FastMCP's built-in JWTVerifier + RemoteAuthProvider
+
 Usage:
+    # Stdio mode (default)
     uvx armor-mcp
-    # or
-    python -m armor_mcp.server
+
+    # HTTP mode with Clerk OAuth
+    MCP_TRANSPORT=http CLERK_DOMAIN=clerk.example.com uvx armor-mcp
 """
 
 from __future__ import annotations
 
+import os
 from functools import wraps
 from typing import Any, Callable, TypeVar
 
@@ -20,29 +27,46 @@ mcp = FastMCP("armor-mcp", instructions="AnomalyArmor Data Observability Tools")
 
 T = TypeVar("T")
 
-# Singleton client instance
+# Singleton client instance (stdio mode only)
 _client: Any = None
 
 
 def _get_client() -> Any:
-    """Get or create singleton SDK client.
+    """Get SDK client for the current request.
+
+    In HTTP mode: creates a per-request client using the Clerk JWT from
+    FastMCP's auth context (token passthrough to backend).
+    In stdio mode: returns a singleton client using ARMOR_API_KEY from env.
 
     Returns:
         Initialized AnomalyArmor Client instance.
 
     Raises:
-        RuntimeError: If SDK is not installed or API key is not configured.
+        RuntimeError: If SDK is not installed or auth is not configured.
     """
+    try:
+        from anomalyarmor import Client
+        from anomalyarmor.exceptions import AuthenticationError
+    except ImportError as e:
+        raise RuntimeError(
+            "anomalyarmor SDK not installed. Run: pip install anomalyarmor"
+        ) from e
+
+    # HTTP mode: per-request client with Clerk JWT as Bearer token
+    try:
+        from fastmcp.server.dependencies import get_access_token
+
+        token = get_access_token()
+        if token is not None:
+            return Client(api_key=token.token)
+    except (ImportError, RuntimeError):
+        # ImportError: fastmcp.server.dependencies not available
+        # RuntimeError: get_access_token() called outside HTTP request context
+        pass
+
+    # Stdio mode: singleton client with API key from env
     global _client
     if _client is None:
-        try:
-            from anomalyarmor import Client
-            from anomalyarmor.exceptions import AuthenticationError
-        except ImportError as e:
-            raise RuntimeError(
-                "anomalyarmor SDK not installed. Run: pip install anomalyarmor"
-            ) from e
-
         try:
             _client = Client()
         except AuthenticationError as e:
@@ -1424,13 +1448,85 @@ def get_coverage_summary():
 
 
 # ============================================================================
+# HTTP Health Check
+# ============================================================================
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Any) -> Any:
+    """Health check endpoint for load balancer."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse({"status": "ok", "service": "armor-mcp"})
+
+
+# ============================================================================
+# Auth Provider (HTTP mode only)
+# ============================================================================
+
+
+def _create_auth_provider() -> Any:
+    """Create Clerk OAuth auth provider for HTTP mode.
+
+    Uses FastMCP's built-in JWTVerifier for RS256 JWKS validation
+    and RemoteAuthProvider for RFC 9728 .well-known metadata.
+
+    Returns:
+        RemoteAuthProvider configured for Clerk, or None if CLERK_DOMAIN not set.
+    """
+    clerk_domain = os.environ.get("CLERK_DOMAIN", "")
+    if not clerk_domain:
+        return None
+
+    from fastmcp.server.auth import JWTVerifier, RemoteAuthProvider
+
+    base_url = os.environ.get("MCP_BASE_URL", "https://mcp.anomalyarmor.ai")
+
+    token_verifier = JWTVerifier(
+        jwks_uri=f"https://{clerk_domain}/.well-known/jwks.json",
+        issuer=f"https://{clerk_domain}",
+        audience=None,  # Clerk doesn't set aud on OAuth tokens
+        algorithm="RS256",
+    )
+
+    return RemoteAuthProvider(
+        token_verifier=token_verifier,
+        authorization_servers=[f"https://{clerk_domain}"],
+        base_url=base_url,
+        resource_name="AnomalyArmor MCP Server",
+    )
+
+
+# ============================================================================
 # Server Entry Point
 # ============================================================================
 
 
 def main():
-    """Run the MCP server."""
-    mcp.run()
+    """Run the MCP server.
+
+    Transport mode is determined by MCP_TRANSPORT env var:
+    - "stdio" (default): Standard MCP stdio transport with API key auth
+    - "http": Streamable HTTP transport with Clerk OAuth 2.1
+    """
+    transport = os.environ.get("MCP_TRANSPORT", "stdio")
+
+    if transport == "http":
+        auth = _create_auth_provider()
+        if auth is None:
+            raise RuntimeError(
+                "CLERK_DOMAIN is required for HTTP mode. "
+                "Set CLERK_DOMAIN env var (e.g., clerk.anomalyarmor.ai)."
+            )
+        mcp.auth = auth
+        mcp.run(
+            transport="streamable-http",
+            host="0.0.0.0",
+            port=int(os.environ.get("PORT", "3001")),
+            stateless_http=True,
+        )
+    else:
+        mcp.run()
 
 
 if __name__ == "__main__":

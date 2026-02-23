@@ -19,7 +19,7 @@ classifiers = [
 ]
 keywords = ["mcp", "anomalyarmor", "data-observability", "claude", "ai"]
 dependencies = [
-    "fastmcp>=0.1.0",
+    "fastmcp>=3.0.0",
     "anomalyarmor-cli>=0.1.0",
 ]
 
