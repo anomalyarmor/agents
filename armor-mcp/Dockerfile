@@ -2,14 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install dependencies
+# Copy source and config
 COPY pyproject.toml ./
-RUN pip install --no-cache-dir .
-
-# Copy source
 COPY src/ ./src/
 
-ENV NODE_ENV=production
+# Install package with dependencies
+RUN pip install --no-cache-dir .
+
 ENV MCP_TRANSPORT=http
 EXPOSE 3001
 
