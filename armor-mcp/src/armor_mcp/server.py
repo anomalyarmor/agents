@@ -59,8 +59,9 @@ def _get_client() -> Any:
         token = get_access_token()
         if token is not None:
             return Client(api_key=token.token)
-    except Exception:
-        # get_access_token() fails outside HTTP request context (stdio mode)
+    except (ImportError, RuntimeError):
+        # ImportError: fastmcp.server.dependencies not available
+        # RuntimeError: get_access_token() called outside HTTP request context
         pass
 
     # Stdio mode: singleton client with API key from env
@@ -1436,8 +1437,12 @@ def main():
 
     if transport == "http":
         auth = _create_auth_provider()
-        if auth is not None:
-            mcp.auth = auth
+        if auth is None:
+            raise RuntimeError(
+                "CLERK_DOMAIN is required for HTTP mode. "
+                "Set CLERK_DOMAIN env var (e.g., clerk.anomalyarmor.ai)."
+            )
+        mcp.auth = auth
         mcp.run(
             transport="streamable-http",
             host="0.0.0.0",
