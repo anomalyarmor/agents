@@ -118,6 +118,18 @@ class TestToolRegistration:
             # Alert History & Trends (TECH-892)
             "alert_history",
             "alert_trends",
+            # Slack OAuth Destinations (TECH-895)
+            "list_slack_connections",
+            "get_slack_channels",
+            "create_slack_destination",
+            "get_slack_oauth_url",
+            # Rule-Destination Linking (TECH-895)
+            "list_rule_destinations",
+            "link_destinations_to_rule",
+            "unlink_destination_from_rule",
+            # Bulk Operations (TECH-895)
+            "bulk_create_destinations",
+            "bulk_create_slack_destinations",
             # Assets
             "list_assets",
             "get_asset",
@@ -175,7 +187,7 @@ class TestToolRegistration:
         ]
 
         # Verify expected count is correct
-        assert len(expected_tools) == 65  # 52 existing + 13 new TECH-892 tools
+        assert len(expected_tools) == 74  # 65 TECH-892 + 9 new TECH-895 tools
 
         # Verify all expected tools are actually registered
         registered = set(tools.keys()) if isinstance(tools, dict) else set()
