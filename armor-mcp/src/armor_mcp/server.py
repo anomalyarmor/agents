@@ -592,7 +592,6 @@ def update_alert_rule(
     name: str | None = None,
     description: str | None = None,
     is_active: bool | None = None,
-    destination_ids: list[str] | None = None,
     event_types: list[str] | None = None,
     severities: list[str] | None = None,
     tag_filter_mode: str | None = None,
@@ -602,12 +601,14 @@ def update_alert_rule(
 ):
     """Update an existing alert rule.
 
+    To change which destinations a rule routes to, use
+    link_destinations_to_rule() and unlink_destination_from_rule().
+
     Args:
         rule_id: Rule public UUID
         name: New rule name
         description: Updated description
         is_active: Enable/disable the rule
-        destination_ids: Updated list of destination UUIDs to route alerts to
         event_types: Event types to alert on
         severities: Severity levels to match
         tag_filter_mode: "any" or "all" for tag-based filtering
@@ -623,7 +624,6 @@ def update_alert_rule(
         "name": name,
         "description": description,
         "is_active": is_active,
-        "destination_ids": destination_ids,
         "event_types": event_types,
         "severities": severities,
         "tag_filter_mode": tag_filter_mode,
@@ -686,6 +686,178 @@ def alert_trends(period: str = "7d"):
         Trend data with period and time-series data points.
     """
     return _get_client().alerts.trends(period=period)
+
+
+# ============================================================================
+# Slack OAuth Destinations (TECH-895)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def list_slack_connections():
+    """List connected Slack workspaces for channel discovery.
+
+    Returns OAuth connections available for creating Slack alert destinations.
+    Use get_slack_channels() to list channels for a specific connection.
+
+    Returns:
+        List of connections with id (UUID), team_name, connected_at, is_valid.
+    """
+    return _get_client().alerts.list_slack_connections()
+
+
+@mcp.tool()
+@sdk_tool
+def get_slack_channels(connection_id: str):
+    """List available channels for a Slack workspace.
+
+    Args:
+        connection_id: Connection UUID from list_slack_connections()
+
+    Returns:
+        List of channels with id, name, is_member, num_members.
+    """
+    return _get_client().alerts.get_slack_channels(connection_id=connection_id)
+
+
+@mcp.tool()
+@sdk_tool
+def create_slack_destination(
+    connection_id: str,
+    channel_id: str,
+    channel_name: str,
+    name: str | None = None,
+):
+    """Create alert destination from Slack OAuth connection + channel.
+
+    Args:
+        connection_id: Connection UUID from list_slack_connections()
+        channel_id: Channel ID from get_slack_channels()
+        channel_name: Channel name (e.g., "alerts-prod-critical")
+        name: Optional display name (defaults to "#channel_name")
+
+    Returns:
+        Created destination with id, name, type, and verification status.
+    """
+    return _get_client().alerts.create_slack_destination(
+        connection_id=connection_id,
+        channel_id=channel_id,
+        channel_name=channel_name,
+        name=name,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def get_slack_oauth_url():
+    """Get Slack OAuth authorization URL. User must open in browser to authorize.
+
+    After authorization completes, use list_slack_connections() to see the
+    new connection, then get_slack_channels() and create_slack_destination().
+
+    Returns:
+        Dict with auth_url to open in browser.
+    """
+    return _get_client().alerts.get_slack_oauth_url()
+
+
+# ============================================================================
+# Rule-Destination Linking (TECH-895)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def list_rule_destinations(rule_id: str):
+    """List destinations linked to an alert rule.
+
+    Args:
+        rule_id: Rule public UUID
+
+    Returns:
+        List of destinations with id, name, type, active status.
+    """
+    return _get_client().alerts.list_rule_destinations(rule_id=rule_id)
+
+
+@mcp.tool()
+@sdk_tool
+def link_destinations_to_rule(rule_id: str, destination_ids: list[str]):
+    """Link one or more destinations to an alert rule.
+
+    Args:
+        rule_id: Rule public UUID
+        destination_ids: List of destination UUIDs to link
+
+    Returns:
+        Dict with linked_count and rule_id.
+    """
+    return _get_client().alerts.link_destinations_to_rule(
+        rule_id=rule_id,
+        destination_ids=destination_ids,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def unlink_destination_from_rule(rule_id: str, destination_id: str):
+    """Unlink a destination from an alert rule.
+
+    Args:
+        rule_id: Rule public UUID
+        destination_id: Destination UUID to unlink
+
+    Returns:
+        Confirmation of unlinking.
+    """
+    _get_client().alerts.unlink_destination_from_rule(
+        rule_id=rule_id,
+        destination_id=destination_id,
+    )
+    return {"unlinked": True, "rule_id": rule_id, "destination_id": destination_id}
+
+
+# ============================================================================
+# Bulk Operations (TECH-895)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def bulk_create_destinations(destinations: list[dict]):
+    """Create multiple alert destinations in a single transaction (max 20).
+
+    Args:
+        destinations: List of dicts, each with name, destination_type, and config keys.
+            Supported types: email, slack, webhook, teams, pagerduty, incidentio.
+
+    Returns:
+        List of created destinations with id, name, type, and status.
+    """
+    return _get_client().alerts.bulk_create_destinations(destinations=destinations)
+
+
+@mcp.tool()
+@sdk_tool
+def bulk_create_slack_destinations(
+    connection_id: str,
+    channels: list[dict],
+):
+    """Create multiple Slack destinations from one OAuth connection (max 20).
+
+    Args:
+        connection_id: Connection UUID from list_slack_connections()
+        channels: List of dicts with channel_id and channel_name keys,
+            and optional name key.
+
+    Returns:
+        List of created destinations.
+    """
+    return _get_client().alerts.bulk_create_slack_destinations(
+        connection_id=connection_id,
+        channels=channels,
+    )
 
 
 # ============================================================================
