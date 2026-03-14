@@ -354,6 +354,337 @@ def snooze_alert(alert_id: str, duration_hours: int, notes: str | None = None):
 
 
 # ============================================================================
+# Alert Destination Tools (TECH-892)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def list_destinations(
+    active_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """List configured alert destinations (Slack, webhook, email, PagerDuty, etc).
+
+    Shows where alerts are delivered to.
+
+    Args:
+        active_only: Only return active destinations (default False)
+        limit: Maximum results (default 50)
+        offset: Pagination offset
+
+    Returns:
+        List of destinations with id, name, type, active status, and delivery stats.
+    """
+    return _get_client().alerts.list_destinations(
+        active_only=active_only,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def get_destination(destination_id: str):
+    """Get details for a specific alert destination.
+
+    Args:
+        destination_id: Destination public UUID
+
+    Returns:
+        Destination details including name, type, config, and delivery stats.
+    """
+    return _get_client().alerts.get_destination(destination_id)
+
+
+@mcp.tool()
+@sdk_tool
+def create_destination(
+    name: str,
+    destination_type: str,
+    config: dict,
+):
+    """Create a new alert destination.
+
+    Args:
+        name: Destination name (e.g., "Slack #alerts", "PagerDuty Oncall")
+        destination_type: Type of destination. One of:
+            - email: config = {"email": "user@example.com"} or {"recipients": ["a@b.com"]}
+            - slack: config = {"webhook_url": "https://hooks.slack.com/..."}
+            - webhook: config = {"url": "https://...", "headers": {...}}
+            - teams: config = {"webhook_url": "https://..."}
+            - pagerduty: config = {"api_token": "...", "routing_key": "..."}
+            - incidentio: config = {"api_key": "...", "severity": "..."}
+        config: Configuration dict (varies by destination_type, see above)
+
+    Returns:
+        Created destination with id, name, type, and verification status.
+    """
+    return _get_client().alerts.create_destination(
+        name=name,
+        destination_type=destination_type,
+        config=config,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def update_destination(
+    destination_id: str,
+    name: str | None = None,
+    config: dict | None = None,
+    is_active: bool | None = None,
+):
+    """Update an existing alert destination.
+
+    Args:
+        destination_id: Destination public UUID
+        name: New destination name (optional)
+        config: Updated configuration dict (optional)
+        is_active: Set active/inactive status (optional)
+
+    Returns:
+        Updated destination details.
+    """
+    kwargs: dict = {}
+    if name is not None:
+        kwargs["name"] = name
+    if config is not None:
+        kwargs["config"] = config
+    if is_active is not None:
+        kwargs["is_active"] = is_active
+    return _get_client().alerts.update_destination(destination_id, **kwargs)
+
+
+@mcp.tool()
+@sdk_tool
+def delete_destination(destination_id: str):
+    """Delete an alert destination.
+
+    Args:
+        destination_id: Destination public UUID
+
+    Returns:
+        Confirmation of deletion.
+    """
+    _get_client().alerts.delete_destination(destination_id)
+    return {"deleted": True, "destination_id": destination_id}
+
+
+@mcp.tool()
+@sdk_tool
+def test_destination(destination_id: str):
+    """Test an alert destination by sending a test notification.
+
+    For email: sends a real test email.
+    For Slack: sends a real test message.
+    For other types: validates configuration format.
+
+    Args:
+        destination_id: Destination public UUID
+
+    Returns:
+        Test result with destination_id, test_sent status, and message.
+    """
+    return _get_client().alerts.test_destination(destination_id)
+
+
+# ============================================================================
+# Alert Rule Tools (TECH-892)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def list_alert_rules(
+    enabled_only: bool = False,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """List alert rules that control when and where alerts are sent.
+
+    Args:
+        enabled_only: Only return enabled rules (default False)
+        limit: Maximum results (default 50)
+        offset: Pagination offset
+
+    Returns:
+        List of alert rules with id, name, event_types, severities, and destinations.
+    """
+    return _get_client().alerts.rules(
+        enabled_only=enabled_only,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def create_alert_rule(
+    name: str,
+    destination_ids: list[str],
+    description: str | None = None,
+    is_active: bool = True,
+    event_types: list[str] | None = None,
+    severities: list[str] | None = None,
+    tag_filter_mode: str | None = None,
+    tag_filter_tags: list[str] | None = None,
+    is_notify_code_authors: bool | None = None,
+    code_author_min_confidence: float | None = None,
+):
+    """Create a new alert rule to route alerts to destinations.
+
+    Args:
+        name: Rule name (e.g., "Critical Alerts to Slack")
+        destination_ids: List of destination UUIDs to send alerts to
+        description: Optional rule description
+        is_active: Whether the rule is active (default True)
+        event_types: Event types to alert on (e.g., ["freshness_alert", "schema_drift",
+                     "metric_anomaly", "validity_failure"])
+        severities: Severity levels to match (e.g., ["critical", "warning", "info"])
+        tag_filter_mode: "any" or "all" for tag-based filtering
+        tag_filter_tags: Tags to filter by (used with tag_filter_mode)
+        is_notify_code_authors: Notify code authors via git blame (default False)
+        code_author_min_confidence: Min git blame confidence 0.0-1.0
+
+    Returns:
+        Created alert rule with id, name, and configuration.
+    """
+    kwargs: dict = {
+        "name": name,
+        "destination_ids": destination_ids,
+        "is_active": is_active,
+    }
+    for key, val in {
+        "description": description,
+        "event_types": event_types,
+        "severities": severities,
+        "tag_filter_mode": tag_filter_mode,
+        "tag_filter_tags": tag_filter_tags,
+        "is_notify_code_authors": is_notify_code_authors,
+        "code_author_min_confidence": code_author_min_confidence,
+    }.items():
+        if val is not None:
+            kwargs[key] = val
+    return _get_client().alerts.create_rule(**kwargs)
+
+
+@mcp.tool()
+@sdk_tool
+def get_alert_rule(rule_id: str):
+    """Get details for a specific alert rule.
+
+    Args:
+        rule_id: Rule public UUID
+
+    Returns:
+        Alert rule with name, event_types, severities, destinations, and status.
+    """
+    return _get_client().alerts.get_rule(rule_id)
+
+
+@mcp.tool()
+@sdk_tool
+def update_alert_rule(
+    rule_id: str,
+    name: str | None = None,
+    description: str | None = None,
+    is_active: bool | None = None,
+    event_types: list[str] | None = None,
+    severities: list[str] | None = None,
+    tag_filter_mode: str | None = None,
+    tag_filter_tags: list[str] | None = None,
+    is_notify_code_authors: bool | None = None,
+    code_author_min_confidence: float | None = None,
+):
+    """Update an existing alert rule.
+
+    Args:
+        rule_id: Rule public UUID
+        name: New rule name
+        description: Updated description
+        is_active: Enable/disable the rule
+        event_types: Event types to alert on
+        severities: Severity levels to match
+        tag_filter_mode: "any" or "all" for tag-based filtering
+        tag_filter_tags: Tags to filter by
+        is_notify_code_authors: Notify code authors via git blame
+        code_author_min_confidence: Min git blame confidence 0.0-1.0
+
+    Returns:
+        Updated alert rule.
+    """
+    kwargs: dict = {}
+    for key, val in {
+        "name": name,
+        "description": description,
+        "is_active": is_active,
+        "event_types": event_types,
+        "severities": severities,
+        "tag_filter_mode": tag_filter_mode,
+        "tag_filter_tags": tag_filter_tags,
+        "is_notify_code_authors": is_notify_code_authors,
+        "code_author_min_confidence": code_author_min_confidence,
+    }.items():
+        if val is not None:
+            kwargs[key] = val
+    return _get_client().alerts.update_rule(rule_id, **kwargs)
+
+
+@mcp.tool()
+@sdk_tool
+def delete_alert_rule(rule_id: str):
+    """Delete an alert rule.
+
+    Args:
+        rule_id: Rule public UUID
+
+    Returns:
+        Confirmation of deletion.
+    """
+    _get_client().alerts.delete_rule(rule_id)
+    return {"deleted": True, "rule_id": rule_id}
+
+
+# ============================================================================
+# Alert History & Trends (TECH-892)
+# ============================================================================
+
+
+@mcp.tool()
+@sdk_tool
+def alert_history(alert_id: str):
+    """Get resolution history for a specific alert.
+
+    Shows all actions taken on the alert (acknowledge, resolve, dismiss, snooze).
+
+    Args:
+        alert_id: Alert public UUID
+
+    Returns:
+        List of history entries with action, timestamp, user_id, and notes.
+    """
+    return _get_client().alerts.history(alert_id)
+
+
+@mcp.tool()
+@sdk_tool
+def alert_trends(period: str = "7d"):
+    """Get alert volume trends over time.
+
+    Useful for understanding alert patterns and reducing alert fatigue.
+
+    Args:
+        period: Time period - "24h", "7d", "30d", or "90d" (default "7d")
+
+    Returns:
+        Trend data with period and time-series data points.
+    """
+    return _get_client().alerts.trends(period=period)
+
+
+# ============================================================================
 # Asset Tools
 # ============================================================================
 
