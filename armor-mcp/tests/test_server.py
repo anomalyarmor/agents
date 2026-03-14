@@ -91,34 +91,100 @@ class TestToolRegistration:
         tools = mcp._tools if hasattr(mcp, "_tools") else {}
 
         expected_tools = [
+            # Health
             "health_summary",
+            "get_todays_briefing",
+            # Alerts
             "list_alerts",
             "get_alert_summary",
+            "list_inbox_alerts",
+            "acknowledge_alert",
+            "resolve_alert",
+            "dismiss_alert",
+            "snooze_alert",
+            # Alert Destinations (TECH-892)
+            "list_destinations",
+            "get_destination",
+            "create_destination",
+            "update_destination",
+            "delete_destination",
+            "test_destination",
+            # Alert Rules (TECH-892)
+            "list_alert_rules",
+            "create_alert_rule",
+            "get_alert_rule",
+            "update_alert_rule",
+            "delete_alert_rule",
+            # Alert History & Trends (TECH-892)
+            "alert_history",
+            "alert_trends",
+            # Assets
             "list_assets",
             "get_asset",
             "create_asset",
             "test_asset_connection",
             "trigger_asset_discovery",
+            # Freshness
             "get_freshness_summary",
             "check_freshness",
             "list_stale_assets",
             "list_freshness_schedules",
             "create_freshness_schedule",
             "delete_freshness_schedule",
+            # Schema
             "get_schema_summary",
             "list_schema_changes",
             "create_schema_baseline",
             "enable_schema_monitoring",
             "disable_schema_monitoring",
+            # Intelligence
             "ask_question",
             "generate_intelligence",
+            # Lineage & Jobs
             "get_lineage",
             "job_status",
+            # Metrics
+            "list_metrics",
+            "get_metrics_summary",
+            "create_metric",
+            "delete_metric",
+            "capture_metric",
+            # Validity
+            "list_validity_rules",
+            "get_validity_summary",
+            "create_validity_rule",
+            "delete_validity_rule",
+            "check_validity_rule",
+            # Tags
+            "list_tags",
+            "create_tag",
+            "apply_tags",
+            "bulk_apply_tag",
+            # Dry-Run / Preview
+            "dry_run_freshness",
+            "dry_run_schema",
+            "preview_alerts",
+            "dry_run_metric",
+            # Recommendations
+            "recommend_freshness",
+            "recommend_metrics",
+            "get_coverage_recommendations",
+            "recommend_thresholds",
+            # Coverage
+            "get_coverage_summary",
         ]
 
-        # Note: FastMCP may store tools differently
-        # This is a basic check - full integration test recommended
-        assert len(expected_tools) == 23  # Sanity check
+        # Verify expected count is correct
+        assert len(expected_tools) == 65  # 52 existing + 13 new TECH-892 tools
+
+        # Verify all expected tools are actually registered
+        registered = set(tools.keys()) if isinstance(tools, dict) else set()
+        missing = set(expected_tools) - registered
+        assert not missing, f"Tools not registered: {sorted(missing)}"
+
+        # Verify no unexpected tools are registered (catch untracked additions)
+        unexpected = registered - set(expected_tools)
+        assert not unexpected, f"Unexpected tools registered: {sorted(unexpected)}"
 
 
 if __name__ == "__main__":
