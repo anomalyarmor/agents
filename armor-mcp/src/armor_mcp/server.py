@@ -811,11 +811,10 @@ def unlink_destination_from_rule(rule_id: str, destination_id: str):
     Returns:
         Confirmation of unlinking.
     """
-    _get_client().alerts.unlink_destination_from_rule(
+    return _get_client().alerts.unlink_destination_from_rule(
         rule_id=rule_id,
         destination_id=destination_id,
     )
-    return {"unlinked": True, "rule_id": rule_id, "destination_id": destination_id}
 
 
 # ============================================================================
@@ -829,8 +828,11 @@ def bulk_create_destinations(destinations: list[dict]):
     """Create multiple alert destinations in a single transaction (max 20).
 
     Args:
-        destinations: List of dicts, each with name, destination_type, and config keys.
-            Supported types: email, slack, webhook, teams, pagerduty, incidentio.
+        destinations: List of dicts with keys:
+            - name (str): Display name for the destination
+            - destination_type (str): One of email, slack, webhook, teams, pagerduty, incidentio
+            - config (dict): Type-specific settings (e.g. {"email": "ops@co.com"},
+              {"webhook_url": "https://..."}, {"channel": "#alerts"})
 
     Returns:
         List of created destinations with id, name, type, and status.
@@ -848,8 +850,10 @@ def bulk_create_slack_destinations(
 
     Args:
         connection_id: Connection UUID from list_slack_connections()
-        channels: List of dicts with channel_id and channel_name keys,
-            and optional name key.
+        channels: List of dicts with keys:
+            - channel_id (str): Channel ID from get_slack_channels()
+            - channel_name (str): Channel name (e.g. "alerts-prod")
+            - name (str, optional): Display name (defaults to "#channel_name")
 
     Returns:
         List of created destinations.
