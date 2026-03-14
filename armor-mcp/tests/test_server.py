@@ -85,10 +85,13 @@ class TestToolRegistration:
 
     def test_all_tools_registered(self):
         """Test that all expected tools are registered with FastMCP."""
+        import asyncio
+
         from armor_mcp.server import mcp
 
-        # Get registered tools
-        tools = mcp._tools if hasattr(mcp, "_tools") else {}
+        # Get registered tools via public async API
+        tool_list = asyncio.run(mcp.list_tools())
+        tools = {t.name: t for t in tool_list}
 
         expected_tools = [
             # Health
@@ -190,7 +193,7 @@ class TestToolRegistration:
         assert len(expected_tools) == 74  # 65 TECH-892 + 9 new TECH-895 tools
 
         # Verify all expected tools are actually registered
-        registered = set(tools.keys()) if isinstance(tools, dict) else set()
+        registered = set(tools.keys())
         missing = set(expected_tools) - registered
         assert not missing, f"Tools not registered: {sorted(missing)}"
 
