@@ -54,3 +54,4 @@ Thumbs.db
 # Local config (API keys should not be committed)
 .env
 .env.local
+armor-mcp/uv.lock
