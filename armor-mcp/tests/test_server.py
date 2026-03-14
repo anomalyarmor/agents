@@ -174,8 +174,17 @@ class TestToolRegistration:
             "get_coverage_summary",
         ]
 
-        # Verify count matches actual registered tools
+        # Verify expected count is correct
         assert len(expected_tools) == 65  # 52 existing + 13 new TECH-892 tools
+
+        # Verify all expected tools are actually registered
+        registered = set(tools.keys()) if isinstance(tools, dict) else set()
+        missing = set(expected_tools) - registered
+        assert not missing, f"Tools not registered: {sorted(missing)}"
+
+        # Verify no unexpected tools are registered (catch untracked additions)
+        unexpected = registered - set(expected_tools)
+        assert not unexpected, f"Unexpected tools registered: {sorted(unexpected)}"
 
 
 if __name__ == "__main__":

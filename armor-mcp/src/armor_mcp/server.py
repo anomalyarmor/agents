@@ -448,12 +448,13 @@ def update_destination(
         Updated destination details.
     """
     kwargs: dict = {}
-    if name is not None:
-        kwargs["name"] = name
-    if config is not None:
-        kwargs["config"] = config
-    if is_active is not None:
-        kwargs["is_active"] = is_active
+    for key, val in {
+        "name": name,
+        "config": config,
+        "is_active": is_active,
+    }.items():
+        if val is not None:
+            kwargs[key] = val
     return _get_client().alerts.update_destination(destination_id, **kwargs)
 
 
@@ -591,6 +592,7 @@ def update_alert_rule(
     name: str | None = None,
     description: str | None = None,
     is_active: bool | None = None,
+    destination_ids: list[str] | None = None,
     event_types: list[str] | None = None,
     severities: list[str] | None = None,
     tag_filter_mode: str | None = None,
@@ -605,6 +607,7 @@ def update_alert_rule(
         name: New rule name
         description: Updated description
         is_active: Enable/disable the rule
+        destination_ids: Updated list of destination UUIDs to route alerts to
         event_types: Event types to alert on
         severities: Severity levels to match
         tag_filter_mode: "any" or "all" for tag-based filtering
@@ -620,6 +623,7 @@ def update_alert_rule(
         "name": name,
         "description": description,
         "is_active": is_active,
+        "destination_ids": destination_ids,
         "event_types": event_types,
         "severities": severities,
         "tag_filter_mode": tag_filter_mode,
