@@ -474,6 +474,13 @@ def update_alert(
                             data_source_issue, configuration_error, expected_behavior,
                             code_change, infrastructure, unknown
     """
+    valid_statuses = ("acknowledged", "resolved", "dismissed", "snoozed")
+    if status not in valid_statuses:
+        raise ValueError(
+            f"Invalid status '{status}'. "
+            f"Must be: acknowledged, resolved, dismissed, or snoozed"
+        )
+
     client = _get_client()
     if status == "acknowledged":
         return client.alerts.acknowledge(alert_id, notes=notes)
@@ -492,11 +499,6 @@ def update_alert(
     elif status == "snoozed":
         return client.alerts.snooze(
             alert_id, duration_hours=duration_hours, notes=notes,
-        )
-    else:
-        raise ValueError(
-            f"Invalid status '{status}'. "
-            f"Must be: acknowledged, resolved, dismissed, or snoozed"
         )
 
 
@@ -591,11 +593,19 @@ def setup_destination(
         webhook_url: Webhook URL (for type="webhook")
         email: Email address (for type="email")
     """
+    if destination_type not in ("slack", "webhook", "email"):
+        return {"error": f"Unknown type '{destination_type}'. Use slack, webhook, or email."}
+
+    if destination_type == "slack" and not channel_name:
+        return {"error": "channel_name is required for Slack destinations"}
+    if destination_type == "webhook" and not webhook_url:
+        return {"error": "webhook_url is required for webhook destinations"}
+    if destination_type == "email" and not email:
+        return {"error": "email is required for email destinations"}
+
     client = _get_client()
 
     if destination_type == "slack":
-        if not channel_name:
-            return {"error": "channel_name is required for Slack destinations"}
 
         # Auto-discover Slack OAuth connection
         try:
@@ -650,8 +660,6 @@ def setup_destination(
         )
 
     elif destination_type == "webhook":
-        if not webhook_url:
-            return {"error": "webhook_url is required for webhook destinations"}
         return client.destinations.create(
             destination_type="webhook",
             name=name or "Webhook",
@@ -659,16 +667,11 @@ def setup_destination(
         )
 
     elif destination_type == "email":
-        if not email:
-            return {"error": "email is required for email destinations"}
         return client.destinations.create(
             destination_type="email",
             name=name or f"Email: {email}",
             config={"email": email},
         )
-
-    else:
-        return {"error": f"Unknown type '{destination_type}'. Use slack, webhook, or email."}
 
 
 # ============================================================================
