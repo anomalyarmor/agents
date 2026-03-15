@@ -1,7 +1,5 @@
 """AnomalyArmor MCP Server.
 
-TECH-904: Consolidated from 74 tools to 29 intent-based tools.
-
 This module provides an MCP server that wraps the AnomalyArmor Python SDK,
 exposing data observability tools to AI assistants like Claude Code and Cursor.
 
