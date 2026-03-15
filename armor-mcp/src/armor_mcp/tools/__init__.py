@@ -1,5 +1,16 @@
-"""MCP Tools for AnomalyArmor.
+"""MCP tool modules.
 
-Tools are defined in server.py for simplicity.
-This module exists for future modularization if needed.
+Importing this package triggers registration of all tools on the
+FastMCP instance. Each submodule uses @mcp.tool() to self-register.
 """
+
+from armor_mcp.tools import (  # noqa: F401
+    alerts,
+    catalog,
+    destinations,
+    freshness,
+    health,
+    intelligence,
+    quality,
+    schema,
+)
