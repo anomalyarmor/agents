@@ -500,6 +500,8 @@ def update_alert(
         return client.alerts.snooze(
             alert_id, duration_hours=duration_hours, notes=notes,
         )
+    else:
+        raise ValueError(f"Unhandled status '{status}' — update dispatch to match valid_statuses")
 
 
 @mcp.tool()
@@ -673,6 +675,8 @@ def setup_destination(
             name=name or f"Email: {email}",
             config={"email": email},
         )
+    else:
+        raise ValueError(f"Unhandled type '{destination_type}' — update dispatch to match validation")
 
 
 # ============================================================================
