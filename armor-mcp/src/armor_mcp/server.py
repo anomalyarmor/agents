@@ -610,7 +610,8 @@ def setup_destination(
         # Auto-discover Slack OAuth connection
         try:
             connections = client.integrations.list_slack_connections()
-        except Exception:
+        except AttributeError:
+            # SDK version doesn't support this method
             connections = []
 
         if not connections:
