@@ -165,8 +165,12 @@ class TestAttr:
     def test_none_default(self):
         assert _attr({}, "key") is None
 
-    def test_prefers_attr_over_dict_get(self):
-        """If object has both attribute and dict-like interface, prefer attribute."""
+    def test_prefers_dict_over_attr(self):
+        """Dict check first to avoid returning bound methods for colliding keys."""
+        assert _attr({"get": "my_value"}, "get") == "my_value"
+
+    def test_non_dict_uses_attr(self):
+        """Non-dict objects use attribute access."""
         mock = Mock()
         mock.name = "from_attr"
         assert _attr(mock, "name") == "from_attr"

@@ -37,11 +37,14 @@ def _attr(obj: Any, key: str, default: Any = None) -> Any:
     The SDK may return either Pydantic models (with .field access) or
     raw dicts (with ["key"] access) depending on version and endpoint.
     This helper normalizes access to avoid repeated hasattr/get patterns.
+
+    Dict check comes first to avoid returning bound methods (e.g.,
+    dict.get, dict.items) when the key collides with a dict method name.
     """
-    if hasattr(obj, key):
-        return getattr(obj, key)
     if isinstance(obj, dict):
         return obj.get(key, default)
+    if hasattr(obj, key):
+        return getattr(obj, key)
     return default
 
 
