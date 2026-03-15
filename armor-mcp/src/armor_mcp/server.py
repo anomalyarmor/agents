@@ -594,14 +594,14 @@ def setup_destination(
         email: Email address (for type="email")
     """
     if destination_type not in ("slack", "webhook", "email"):
-        return {"error": f"Unknown type '{destination_type}'. Use slack, webhook, or email."}
+        raise ValueError(f"Unknown type '{destination_type}'. Use slack, webhook, or email.")
 
     if destination_type == "slack" and not channel_name:
-        return {"error": "channel_name is required for Slack destinations"}
+        raise ValueError("channel_name is required for Slack destinations")
     if destination_type == "webhook" and not webhook_url:
-        return {"error": "webhook_url is required for webhook destinations"}
+        raise ValueError("webhook_url is required for webhook destinations")
     if destination_type == "email" and not email:
-        return {"error": "email is required for email destinations"}
+        raise ValueError("email is required for email destinations")
 
     client = _get_client()
 
@@ -632,7 +632,7 @@ def setup_destination(
         try:
             channels = client.integrations.get_slack_channels(conn_id)
         except Exception:
-            return {"error": f"Could not list channels for connection {conn_id}"}
+            return {"error": "SlackError", "message": f"Could not list channels for connection {conn_id}"}
 
         match = None
         close_matches = []
@@ -649,7 +649,7 @@ def setup_destination(
             msg = f"Channel '#{channel_name}' not found."
             if close_matches:
                 msg += f" Similar: {', '.join(close_matches[:5])}"
-            return {"error": msg}
+            return {"error": "NotFoundError", "message": msg}
 
         channel_id, resolved_name = match
         return client.integrations.create_slack_destination(

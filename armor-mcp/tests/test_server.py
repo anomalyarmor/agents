@@ -130,7 +130,7 @@ class TestToolRegistration:
 
         result = setup_destination(destination_type="slack")
         assert "error" in result
-        assert "channel_name" in result["error"]
+        assert "channel_name" in result["message"]
 
     def test_setup_destination_requires_url_for_webhook(self):
         """setup_destination requires webhook_url for webhook."""
@@ -138,7 +138,7 @@ class TestToolRegistration:
 
         result = setup_destination(destination_type="webhook")
         assert "error" in result
-        assert "webhook_url" in result["error"]
+        assert "webhook_url" in result["message"]
 
     def test_setup_destination_rejects_unknown_type(self):
         """setup_destination rejects unknown destination types."""
@@ -146,7 +146,7 @@ class TestToolRegistration:
 
         result = setup_destination(destination_type="fax")
         assert "error" in result
-        assert "fax" in result["error"]
+        assert "fax" in result["message"]
 
 
 if __name__ == "__main__":
