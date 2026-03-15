@@ -1,65 +1,20 @@
-"""Tests for MCP server tools (TECH-904: consolidated from 74 to 29)."""
+"""Tests for server module: tool registration, main(), and validation."""
 
 import asyncio
-from unittest.mock import Mock
+import os
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from armor_mcp.server import sdk_tool
-
-
-class TestSdkTool:
-    """Tests for the sdk_tool decorator."""
-
-    def test_sdk_tool_handles_model_dump(self):
-        mock_model = Mock()
-        mock_model.model_dump.return_value = {"key": "value"}
-
-        @sdk_tool
-        def test_func():
-            return mock_model
-
-        result = test_func()
-        assert result == {"key": "value"}
-        mock_model.model_dump.assert_called_once()
-
-    def test_sdk_tool_handles_list_of_models(self):
-        mock_model1 = Mock()
-        mock_model1.model_dump.return_value = {"id": 1}
-        mock_model2 = Mock()
-        mock_model2.model_dump.return_value = {"id": 2}
-
-        @sdk_tool
-        def test_func():
-            return [mock_model1, mock_model2]
-
-        result = test_func()
-        assert result == [{"id": 1}, {"id": 2}]
-
-    def test_sdk_tool_handles_dict(self):
-        @sdk_tool
-        def test_func():
-            return {"already": "dict"}
-
-        result = test_func()
-        assert result == {"already": "dict"}
-
-    def test_sdk_tool_handles_exceptions(self):
-        @sdk_tool
-        def test_func():
-            raise ValueError("test error")
-
-        result = test_func()
-        assert result["error"] == "ValueError"
-        assert "test error" in result["message"]
+from armor_mcp._app import mcp
 
 
 class TestToolRegistration:
-    """Tests for tool registration (TECH-904)."""
+    """All 29 consolidated tools must be registered."""
 
     def test_all_tools_registered(self):
-        """All consolidated tools are registered with FastMCP."""
-        from armor_mcp.server import mcp
+        # Import server to trigger tool registration
+        import armor_mcp.server  # noqa: F401
 
         tool_list = asyncio.run(mcp.list_tools())
         tools = {t.name: t for t in tool_list}
@@ -115,38 +70,80 @@ class TestToolRegistration:
         unexpected = registered - set(expected_tools)
         assert not unexpected, f"Unexpected tools registered: {sorted(unexpected)}"
 
-    def test_update_alert_validates_status(self):
-        """update_alert rejects invalid status values."""
-        from armor_mcp.server import update_alert
 
-        # The sdk_tool wrapper catches exceptions and returns error dict
+class TestToolValidation:
+    """Input validation tests for tools with dispatch logic."""
+
+    def test_update_alert_validates_status(self):
+        from armor_mcp.tools.alerts import update_alert
+
         result = update_alert(alert_id="test-id", status="invalid")
         assert "error" in result
         assert "Invalid status" in result["message"]
 
     def test_setup_destination_requires_channel_for_slack(self):
-        """setup_destination requires channel_name for Slack."""
-        from armor_mcp.server import setup_destination
+        from armor_mcp.tools.destinations import setup_destination
 
         result = setup_destination(destination_type="slack")
         assert "error" in result
         assert "channel_name" in result["message"]
 
     def test_setup_destination_requires_url_for_webhook(self):
-        """setup_destination requires webhook_url for webhook."""
-        from armor_mcp.server import setup_destination
+        from armor_mcp.tools.destinations import setup_destination
 
         result = setup_destination(destination_type="webhook")
         assert "error" in result
         assert "webhook_url" in result["message"]
 
     def test_setup_destination_rejects_unknown_type(self):
-        """setup_destination rejects unknown destination types."""
-        from armor_mcp.server import setup_destination
+        from armor_mcp.tools.destinations import setup_destination
 
         result = setup_destination(destination_type="fax")
         assert "error" in result
         assert "fax" in result["message"]
+
+
+class TestMain:
+    """Tests for server entry point."""
+
+    def test_stdio_mode_is_default(self):
+        from armor_mcp.server import main
+
+        with patch.object(mcp, "run") as mock_run:
+            with patch.dict(os.environ, {}, clear=False):
+                # Remove MCP_TRANSPORT if set
+                os.environ.pop("MCP_TRANSPORT", None)
+                main()
+
+        mock_run.assert_called_once_with()
+
+    def test_http_mode_requires_clerk_domain(self):
+        from armor_mcp.server import main
+
+        with patch.dict(os.environ, {"MCP_TRANSPORT": "http"}, clear=False):
+            os.environ.pop("CLERK_DOMAIN", None)
+            with pytest.raises(RuntimeError, match="CLERK_DOMAIN is required"):
+                main()
+
+    def test_http_mode_configures_auth(self):
+        from armor_mcp.server import main
+
+        mock_auth = MagicMock()
+        with patch("armor_mcp.server._create_auth_provider", return_value=mock_auth):
+            with patch.object(mcp, "run") as mock_run:
+                with patch.dict(os.environ, {
+                    "MCP_TRANSPORT": "http",
+                    "PORT": "8080",
+                }):
+                    main()
+
+        assert mcp.auth is mock_auth
+        mock_run.assert_called_once_with(
+            transport="streamable-http",
+            host="0.0.0.0",
+            port=8080,
+            stateless_http=True,
+        )
 
 
 if __name__ == "__main__":
