@@ -4,7 +4,6 @@ from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
 
-
 # -- Metrics -----------------------------------------------------------------
 
 
@@ -13,8 +12,11 @@ from armor_mcp._decorators import sdk_tool
 def list_metrics(asset_id: str, limit: int = 25):
     """List data quality metrics configured for an asset.
 
+    Shows metric type, table, column, and active status.
+    Use create_metric to add new metrics.
+
     Args:
-        asset_id: Asset UUID or qualified name
+        asset_id: Asset UUID (from list_assets)
         limit: Maximum results (default 25)
     """
     return _get_client().metrics.list(asset_id=asset_id, limit=limit)
@@ -28,13 +30,17 @@ def create_metric(
     metric_type: str,
     column_name: str | None = None,
 ):
-    """Create a data quality metric.
+    """Create a data quality metric for a table.
+
+    Use explore to find table paths and column names.
 
     Args:
-        asset_id: Asset UUID or qualified name
-        table_path: Table path (e.g., "public.orders")
-        metric_type: "row_count", "null_rate", "unique_rate", "min", "max", "mean", "stddev"
-        column_name: Column name (required for column-level metrics)
+        asset_id: Asset UUID (from list_assets)
+        table_path: Full table path (e.g., "public.orders")
+        metric_type: Type of metric: "row_count", "null_rate", "unique_rate",
+                     "min", "max", "mean", "stddev"
+        column_name: Column to monitor (required for column-level metrics like
+                     null_rate, mean, etc.)
     """
     return _get_client().metrics.create(
         asset_id=asset_id,
@@ -52,8 +58,11 @@ def create_metric(
 def list_validity_rules(asset_id: str, limit: int = 25):
     """List data validity rules configured for an asset.
 
+    Shows rule type, table, column, and active status.
+    Use create_validity_rule to add new rules.
+
     Args:
-        asset_id: Asset UUID or qualified name
+        asset_id: Asset UUID (from list_assets)
         limit: Maximum results (default 25)
     """
     return _get_client().validity.list_rules(asset_id=asset_id, limit=limit)
@@ -70,16 +79,23 @@ def create_validity_rule(
     name: str | None = None,
     severity: str = "error",
 ):
-    """Create a data validity rule for a column.
+    """Create a data validity rule for a specific column.
+
+    Checks column values against defined constraints. Use explore to find
+    table and column names.
 
     Args:
-        asset_id: Asset UUID or qualified name
-        table_path: Table path (e.g., "public.users")
+        asset_id: Asset UUID (from list_assets)
+        table_path: Full table path (e.g., "public.users")
         column_name: Column to validate
-        rule_type: "regex_match", "allowed_values", "range_bounds", "format", "length_bounds"
-        rule_config: Config dict, e.g. {"pattern": "^[A-Z]"} for regex_match
-        name: Optional rule name
-        severity: "error" (default) or "warning"
+        rule_type: Type of check: "regex_match", "allowed_values", "range_bounds",
+                   "format", "length_bounds"
+        rule_config: Config for the rule type. Examples:
+                     {"pattern": "^[A-Z]"} for regex_match,
+                     {"values": ["a","b"]} for allowed_values,
+                     {"min": 0, "max": 100} for range_bounds
+        name: Human-readable rule name (auto-generated if omitted)
+        severity: Alert severity when rule fails: "error" (default), "warning", "critical"
     """
     return _get_client().validity.create_rule(
         asset_id=asset_id,

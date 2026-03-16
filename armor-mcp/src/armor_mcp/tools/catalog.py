@@ -4,7 +4,6 @@ from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
 
-
 # -- Lineage -----------------------------------------------------------------
 
 
@@ -17,13 +16,17 @@ def get_lineage(
 ):
     """Get data lineage for an asset showing upstream sources and downstream consumers.
 
+    Requires a dbt manifest to be uploaded via the UI or API.
+
     Args:
-        asset_id: Asset UUID or qualified name
+        asset_id: Asset UUID (from list_assets)
         depth: How many hops to traverse (default 2)
-        direction: "upstream", "downstream", or "both" (default "both")
+        direction: Lineage direction: "upstream", "downstream", or "both" (default "both")
     """
     return _get_client().lineage.get(
-        asset_id=asset_id, depth=depth, direction=direction,
+        asset_id=asset_id,
+        depth=depth,
+        direction=direction,
     )
 
 
@@ -47,11 +50,13 @@ def job_status(job_id: str):
 @mcp.tool()
 @sdk_tool
 def list_tags(asset_id: str, object_path: str | None = None):
-    """List tags for an asset or specific object.
+    """List tags applied to database objects within an asset.
+
+    Use explore to find valid object paths.
 
     Args:
-        asset_id: Asset UUID or qualified name
-        object_path: Optional object path to filter (e.g., "public.users.email")
+        asset_id: Asset UUID (from list_assets)
+        object_path: Filter to tags on a specific object (e.g., "public.users.email")
     """
     return _get_client().tags.list(asset_id=asset_id, object_path=object_path)
 
@@ -64,13 +69,15 @@ def apply_tags(
     tags: list[str],
     object_type: str = "column",
 ):
-    """Apply tags to a database object.
+    """Apply tags to a database object (table, column, schema).
+
+    Use explore to find valid object paths before tagging.
 
     Args:
-        asset_id: Asset UUID or qualified name
-        object_path: Object path (e.g., "public.users.email")
-        tags: List of tag names to apply
-        object_type: "column", "table", or "schema"
+        asset_id: Asset UUID (from list_assets)
+        object_path: Full path to the object (e.g., "public.users.email")
+        tags: List of tag names to apply (e.g., ["pii", "revenue-critical"])
+        object_type: Type of database object: "column", "table", or "schema"
     """
     return _get_client().tags.apply(
         asset_id=asset_id,

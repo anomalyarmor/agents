@@ -15,14 +15,18 @@ def list_destinations(
     destination_type: str | None = None,
     active_only: bool = True,
 ):
-    """List configured alert destinations.
+    """List configured alert destinations (Slack, email, webhook).
+
+    Returns destination IDs needed for create_alert_rule. Use setup_destination
+    to create new destinations.
 
     Args:
-        destination_type: Filter by type ("slack", "webhook", "email")
+        destination_type: Filter by type: "slack", "webhook", "email"
         active_only: Only return active destinations (default True)
     """
     return _get_client().destinations.list(
-        destination_type=destination_type, active_only=active_only,
+        destination_type=destination_type,
+        active_only=active_only,
     )
 
 
@@ -95,18 +99,19 @@ def setup_destination(
     webhook_url: str | None = None,
     email: str | None = None,
 ):
-    """Create an alert destination with smart auto-discovery.
+    """Create an alert destination with auto-discovery.
 
-    For Slack: provide channel_name, auto-discovers OAuth connection.
+    For Slack: provide channel_name (auto-discovers OAuth connection).
     For webhook: provide webhook_url.
     For email: provide email address.
+    After creating, use create_alert_rule to route alerts to the destination.
 
     Args:
-        destination_type: "slack", "webhook", or "email"
-        name: Destination name (auto-generated if not provided)
-        channel_name: Slack channel name (for type="slack")
-        webhook_url: Webhook URL (for type="webhook")
-        email: Email address (for type="email")
+        destination_type: Type of destination: "slack", "webhook", or "email"
+        name: Display name for the destination (auto-generated if omitted)
+        channel_name: Slack channel name without # (required for Slack)
+        webhook_url: Full webhook URL (required for webhook)
+        email: Email address (required for email)
     """
     if destination_type not in _VALID_DESTINATION_TYPES:
         raise ValueError(
