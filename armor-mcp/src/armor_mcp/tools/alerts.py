@@ -15,12 +15,14 @@ def list_alerts(
     to_date: str | None = None,
     limit: int = 25,
 ):
-    """List alerts with optional filtering.
+    """List recent alerts with severity, status, and asset info.
+
+    Use update_alert to acknowledge, resolve, dismiss, or snooze alerts.
 
     Args:
-        status: Filter by status ("triggered", "acknowledged", "resolved")
+        status: Filter by status ("triggered", "acknowledged", "resolved", "dismissed", "snoozed")
         severity: Filter by severity ("info", "warning", "critical")
-        asset_id: Filter by asset UUID or qualified name
+        asset_id: Filter by asset UUID (from list_assets)
         from_date: Start of date range (ISO 8601, e.g., "2026-01-29T00:00:00Z")
         to_date: End of date range (ISO 8601)
         limit: Maximum results (default 25, max 100)
@@ -48,13 +50,13 @@ def update_alert(
     action_category: str | None = None,
     root_cause_category: str | None = None,
 ):
-    """Update alert status: acknowledge, resolve, dismiss, or snooze.
+    """Update an alert's lifecycle status. Use list_alerts to find alert IDs.
 
     Args:
-        alert_id: Alert public UUID (from list_alerts)
-        status: "acknowledged", "resolved", "dismissed", or "snoozed"
-        notes: Optional notes about the action
-        duration_hours: Hours to snooze (only for status="snoozed", default 24)
+        alert_id: Alert UUID (from list_alerts)
+        status: New status: "acknowledged", "resolved", "dismissed", or "snoozed"
+        notes: Optional notes explaining the status change
+        duration_hours: Snooze duration in hours, 1-720 (default 24). Only for status="snoozed".
         action_category: For resolve/dismiss: reran_job, updated_sql, rolled_back,
                          false_positive, expected_behavior, code_change, other
         root_cause_category: For resolve/dismiss: pipeline_failure, schema_change,
@@ -72,22 +74,28 @@ def update_alert(
         return client.alerts.acknowledge(alert_id, notes=notes)
     elif status == "resolved":
         return client.alerts.resolve(
-            alert_id, notes=notes,
+            alert_id,
+            notes=notes,
             action_category=action_category,
             root_cause_category=root_cause_category,
         )
     elif status == "dismissed":
         return client.alerts.dismiss(
-            alert_id, notes=notes,
+            alert_id,
+            notes=notes,
             action_category=action_category,
             root_cause_category=root_cause_category,
         )
     elif status == "snoozed":
         return client.alerts.snooze(
-            alert_id, duration_hours=duration_hours, notes=notes,
+            alert_id,
+            duration_hours=duration_hours,
+            notes=notes,
         )
     else:
-        raise ValueError(f"Unhandled status '{status}', update dispatch to match _VALID_ALERT_STATUSES")
+        raise ValueError(
+            f"Unhandled status '{status}', update dispatch to match _VALID_ALERT_STATUSES"
+        )
 
 
 @mcp.tool()
@@ -96,14 +104,18 @@ def list_alert_rules(
     asset_id: str | None = None,
     active_only: bool = True,
 ):
-    """List configured alert rules.
+    """List configured alert rules showing which events and severities each rule monitors.
+
+    Use create_alert_rule to add new rules, list_destinations to find
+    destination IDs for routing.
 
     Args:
-        asset_id: Filter by asset UUID or qualified name
+        asset_id: Filter by asset UUID (from list_assets)
         active_only: Only return active rules (default True)
     """
     return _get_client().alerts.list_rules(
-        asset_id=asset_id, active_only=active_only,
+        asset_id=asset_id,
+        active_only=active_only,
     )
 
 
@@ -117,15 +129,20 @@ def create_alert_rule(
     destination_ids: list[str] | None = None,
     asset_ids: list[str] | None = None,
 ):
-    """Create an alert routing rule.
+    """Create an alert rule to notify when data issues are detected.
+
+    Routes to specified destinations (or default email). Use list_destinations
+    to find destination IDs, list_assets for asset IDs.
 
     Args:
-        name: Rule name
-        event_types: Event types to match (e.g., ["freshness_stale", "schema_drift"])
-        severities: Severity levels (e.g., ["warning", "critical"])
-        description: Optional description
-        destination_ids: Alert destination UUIDs to notify (from list_destinations)
-        asset_ids: Asset UUIDs to scope the rule to
+        name: Human-readable name for the alert rule
+        event_types: Event types to monitor: "freshness_stale", "schema_drift",
+                     "metric_anomaly", "validity_failure", "custom_sql". Omit for all.
+        severities: Severity levels to trigger on: "info", "warning", "critical". Omit for all.
+        description: Optional description of the rule's purpose
+        destination_ids: UUIDs of destinations to route alerts to (from list_destinations).
+                         Falls back to default email if omitted.
+        asset_ids: UUIDs of assets to scope the rule to (from list_assets). Omit for all.
     """
     return _get_client().alerts.create_rule(
         name=name,

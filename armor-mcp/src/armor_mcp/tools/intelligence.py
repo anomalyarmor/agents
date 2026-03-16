@@ -15,9 +15,11 @@ def ask_question(
 ):
     """Ask a natural language question about your data.
 
+    Uses AI to analyze your schema, metadata, and monitoring data to answer.
+
     Args:
         question: Natural language question (e.g., "What tables contain customer PII?")
-        asset_id: Optional asset UUID to scope the question
+        asset_id: Asset UUID to scope the question (from list_assets). Omit for all assets.
         include_schema: Include schema info in context (default True)
         include_lineage: Include lineage info in context (default False)
     """
@@ -38,10 +40,13 @@ def generate_intelligence(
     """Generate AI analysis for an asset. Analyzes schema, data patterns,
     and metadata to generate insights. Results are cached.
 
+    Runs as a background job. Use job_status to track progress.
+
     Args:
-        asset_id: Asset UUID or qualified name
+        asset_id: Asset UUID (from list_assets)
         force_refresh: Force regeneration even if cached (default False)
     """
     return _get_client().intelligence.generate(
-        asset_id=asset_id, force_refresh=force_refresh,
+        asset_id=asset_id,
+        force_refresh=force_refresh,
     )
