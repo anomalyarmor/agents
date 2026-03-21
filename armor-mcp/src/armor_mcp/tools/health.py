@@ -19,31 +19,10 @@ def health_summary():
 
 @mcp.tool()
 @sdk_tool
-def list_assets(
-    asset_type: str | None = None,
-    limit: int = 25,
-):
-    """List all connected data assets (databases, warehouses).
+def get_todays_briefing():
+    """Get today's data health briefing with key events and recommendations.
 
-    Returns asset IDs needed by most other tools. Start here to find
-    asset UUIDs for use with check_freshness, list_metrics, explore, etc.
-
-    Args:
-        asset_type: Filter by type ("postgresql", "snowflake", "bigquery", etc.)
-        limit: Maximum results (default 25)
+    Provides a daily summary of alerts fired, freshness issues, schema changes,
+    and suggested actions. Good starting point for a morning check-in.
     """
-    return _get_client().assets.list(asset_type=asset_type, limit=limit)
-
-
-@mcp.tool()
-@sdk_tool
-def trigger_asset_discovery(asset_id: str):
-    """Start schema discovery for an asset. Discovers all schemas, tables,
-    columns, and metadata. Runs as background job.
-
-    Use job_status() to track progress, then explore() to browse results.
-
-    Args:
-        asset_id: Asset UUID (from list_assets)
-    """
-    return _get_client().assets.trigger_discovery(asset_id)
+    return _get_client().briefings.today()

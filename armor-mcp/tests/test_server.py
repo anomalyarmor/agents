@@ -5,12 +5,11 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from armor_mcp._app import mcp
 
 
 class TestToolRegistration:
-    """All 29 consolidated tools must be registered."""
+    """All 38 consolidated tools must be registered."""
 
     def test_all_tools_registered(self):
         # Import server to trigger tool registration
@@ -20,10 +19,14 @@ class TestToolRegistration:
         tools = {t.name: t for t in tool_list}
 
         expected_tools = [
-            # Health & Discovery
+            # Health & Briefings
             "health_summary",
+            "get_todays_briefing",
+            # Assets
             "list_assets",
             "trigger_asset_discovery",
+            "create_asset",
+            "manage_asset",
             # Freshness
             "get_freshness_summary",
             "check_freshness",
@@ -59,9 +62,19 @@ class TestToolRegistration:
             # Tags
             "list_tags",
             "apply_tags",
+            # Referential (TECH-935)
+            "create_referential_check",
+            "manage_referential",
+            # Recommendations (TECH-935)
+            "recommend",
+            # Coverage (TECH-935)
+            "get_coverage",
+            "manage_coverage",
+            # API Keys (TECH-935)
+            "get_api_key_info",
         ]
 
-        assert len(expected_tools) == 29
+        assert len(expected_tools) == 38
 
         registered = set(tools.keys())
         missing = set(expected_tools) - registered
@@ -131,10 +144,13 @@ class TestMain:
         mock_auth = MagicMock()
         with patch("armor_mcp.server._create_auth_provider", return_value=mock_auth):
             with patch.object(mcp, "run") as mock_run:
-                with patch.dict(os.environ, {
-                    "MCP_TRANSPORT": "http",
-                    "PORT": "8080",
-                }):
+                with patch.dict(
+                    os.environ,
+                    {
+                        "MCP_TRANSPORT": "http",
+                        "PORT": "8080",
+                    },
+                ):
                     main()
 
         assert mcp.auth is mock_auth
