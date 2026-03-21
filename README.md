@@ -1,6 +1,8 @@
 # AnomalyArmor Agents
 
-AI skills and MCP server for AnomalyArmor data observability. Interact with your data health, alerts, and monitoring directly from Claude Code, Cursor, or any MCP-compatible AI tool.
+AI skills and MCP server for AnomalyArmor data observability. Monitor data quality, detect schema drift, and manage alerts directly from Claude Code, Cursor, or any MCP-compatible AI tool.
+
+**Version**: 0.6.0 | **Tools**: 29 consolidated MCP tools | **Skills**: 14 slash commands
 
 ## Quick Start
 
@@ -18,6 +20,7 @@ npx skills add anomalyarmor/agents
 Then use skills like:
 - `/armor:status` - Check data health
 - `/armor:alerts` - View and manage alerts
+- `/armor:recommend` - Get AI monitoring recommendations
 - `/armor:ask` - Ask questions about your data
 
 ### Option 2: MCP Server
@@ -49,98 +52,99 @@ api_key: aa_live_your_key_here
 
 | Skill | Description | Example |
 |-------|-------------|---------|
+| `/armor:start` | Guided onboarding for new users | "Help me get set up" |
 | `/armor:status` | Health summary across all assets | "Is my data healthy?" |
-| `/armor:alerts` | Query and manage alerts | "What alerts fired yesterday?" |
 | `/armor:connect` | Connect a new data source | "Connect my Snowflake warehouse" |
-| `/armor:monitor` | Set up monitoring | "Monitor freshness for orders table" |
-| `/armor:ask` | Natural language Q&A | "What tables contain customer data?" |
+| `/armor:monitor` | Set up freshness and schema monitoring | "Monitor freshness for orders table" |
+| `/armor:alerts` | Query and manage alerts | "What alerts fired yesterday?" |
+| `/armor:ask` | Natural language Q&A about your data | "What tables contain customer data?" |
 | `/armor:analyze` | Trigger AI analysis | "Analyze the finance schema" |
-| `/armor:quality` | Data quality checks | "Add null check for customer_id column" |
+| `/armor:quality` | Data quality metrics and validity rules | "Add null check for customer_id" |
+| `/armor:coverage` | Monitoring coverage analysis | "What tables have no monitoring?" |
+| `/armor:recommend` | AI-driven monitoring recommendations | "What should I monitor?" |
 | `/armor:tags` | Asset tagging and classification | "Tag this table as PII" |
 | `/armor:investigate` | Root cause analysis | "Why is this table stale?" |
 | `/armor:lineage` | Data lineage exploration | "What depends on this table?" |
 | `/armor:profile` | Table profiling and stats | "Profile the orders table" |
-| `/armor:coverage` | Monitoring coverage analysis | "What tables have no alerts?" |
-| `/armor:test` | Dry-run configurations before enabling | "Test this freshness threshold" |
-| `/armor:recommend` | AI-driven monitoring recommendations | "What should I monitor?" |
 
-## MCP Tools
+## MCP Tools (29 consolidated)
 
-The MCP server exposes these tools:
+Tools follow a consolidated pattern: one tool per domain handles multiple operations via an `action` parameter, reducing context window usage while maintaining full functionality.
 
-### Health
-- `health_summary()` - Overall health status
+### Health and Briefing
+- `health_summary()` - Overall data health across all assets
+- `get_todays_briefing()` - Daily AI briefing with alerts, freshness, and coverage gaps
 
-### Alerts
-- `list_alerts(status, severity, asset_id, from_date, to_date)` - Query alerts
-- `get_alert_summary()` - Alert counts
+### Alerts (5 tools)
+- `get_alerts_summary()` - Alert counts by severity and status
+- `list_alerts(status, severity, asset_id, from_date, to_date)` - Query alerts with filters
+- `list_inbox_alerts(status, limit)` - Unresolved alerts inbox
+- `update_alert(alert_id, action, ...)` - Acknowledge, resolve, snooze, or comment on alerts
+- `get_alert_trends(period)` - Alert trends over time
+- `get_alert_history(alert_id)` - Full history for a specific alert
 
-### Assets
+### Alert Rules (3 tools)
+- `list_alert_rules(asset_id, is_active)` - List configured rules
+- `create_alert_rule(asset_id, rule_type, ...)` - Create new alert rule
+- `manage_alert_rule(rule_id, action, ...)` - Update, delete, enable/disable, or duplicate rules
+
+### Assets (3 tools)
 - `list_assets(source, asset_type, search)` - List monitored assets
-- `get_asset(asset_id)` - Get asset details
 - `create_asset(name, source_type, connection_config)` - Create data source
-- `test_asset_connection(asset_id)` - Test connection
+- `manage_asset(asset_id, action, ...)` - Update, delete, test connection, or trigger discovery
 - `trigger_asset_discovery(asset_id)` - Start schema discovery
 
-### Freshness
-- `get_freshness_summary()` - Freshness overview
-- `check_freshness(asset_id)` - Check specific asset
-- `list_stale_assets()` - List stale assets
-- `list_freshness_schedules(asset_id)` - List schedules
-- `create_freshness_schedule(asset_id, table_path, check_interval)` - Create schedule
-- `delete_freshness_schedule(schedule_id)` - Delete schedule
+### Freshness (4 tools)
+- `get_freshness_summary()` - Freshness overview across all assets
+- `check_freshness(asset_id, table_path)` - Check specific table freshness
+- `setup_freshness(asset_id, table_path, check_interval, ...)` - Create freshness schedule
+- `list_freshness_schedules(asset_id)` - List configured schedules
+- `manage_freshness_schedule(schedule_id, action, ...)` - Update, delete, pause/resume schedules
 
-### Schema
+### Schema Drift (5 tools)
 - `get_schema_summary()` - Schema drift overview
-- `list_schema_changes(asset_id, severity)` - List changes
-- `create_schema_baseline(asset_id)` - Create baseline
-- `enable_schema_monitoring(asset_id, schedule_type)` - Enable monitoring
+- `list_schema_changes(asset_id, severity, from_date, to_date)` - List detected changes
+- `create_schema_baseline(asset_id, description)` - Create baseline
+- `enable_schema_monitoring(asset_id, schedule_type, notify_on)` - Enable monitoring
 - `disable_schema_monitoring(asset_id)` - Disable monitoring
+- `get_schema_monitoring(asset_id)` - View current monitoring config
+- `dry_run_schema(asset_id, schedule_type)` - Test schema monitoring before enabling
 
-### Intelligence
+### Data Quality (4 tools)
+- `get_metrics_summary(asset_id)` / `list_metrics(asset_id)` - View metrics
+- `create_metric(asset_id, metric_type, table_path, ...)` - Create row count, null rate, or custom metric
+- `manage_metric(metric_id, action, ...)` - Update, delete, capture, or view snapshots
+- `get_validity_summary(asset_id)` / `list_validity_rules(asset_id)` - View validity rules
+- `create_validity_rule(asset_id, rule_type, table_path, ...)` - Create validity rule
+- `manage_validity_rule(rule_id, action, ...)` - Update, delete, check, or view results
+
+### Referential Integrity (2 tools)
+- `create_referential_check(asset_id, ...)` - Create cross-table referential check
+- `manage_referential(check_id, action, ...)` - List, delete, run, or view results
+
+### Destinations (4 tools)
+- `list_destinations(destination_type)` - List alert destinations (Slack, email, webhook)
+- `setup_destination(destination_type, ...)` - Create Slack channel, email, or webhook destination
+- `manage_destination(destination_id, action, ...)` - Update, delete, test, enable/disable
+- `manage_rule_destinations(rule_id, action, ...)` - Link/unlink destinations to alert rules
+
+### Coverage and Recommendations (3 tools)
+- `get_coverage(asset_id)` - Coverage tier and score for an asset
+- `manage_coverage(asset_id, action)` - Get next steps or apply recommended monitoring
+- `recommend(asset_id, recommendation_type)` - AI recommendations for freshness, metrics, coverage, or thresholds
+
+### Intelligence (2 tools)
 - `ask_question(asset, question)` - Natural language Q&A
-- `generate_intelligence(asset)` - Trigger AI analysis
+- `generate_intelligence(asset)` - Trigger AI knowledge base generation
 
-### Lineage
-- `get_lineage(asset_id, depth, direction)` - Get lineage graph
-
-### Metrics
-- `list_metrics(asset_id, metric_type, limit)` - List metrics for an asset
-- `get_metrics_summary(asset_id)` - Get metrics summary
-- `create_metric(asset_id, metric_type, table_path, column_name, capture_interval)` - Create metric
-- `delete_metric(asset_id, metric_id)` - Delete metric
-- `capture_metric(asset_id, metric_id)` - Trigger immediate capture
-
-### Validity
-- `list_validity_rules(asset_id, rule_type, limit)` - List validity rules
-- `get_validity_summary(asset_id)` - Get validity summary
-- `create_validity_rule(asset_id, rule_type, table_path, column_name, severity)` - Create rule
-- `delete_validity_rule(asset_id, rule_id)` - Delete rule
-- `check_validity_rule(asset_id, rule_id)` - Run check immediately
-
-### Tags
-- `list_tags(asset, category, limit)` - List tags for an asset
-- `create_tag(asset, name, object_path, object_type, category, description)` - Create tag
-- `apply_tags(asset, tag_names, object_paths, category)` - Apply tags to objects
-- `bulk_apply_tag(tag_name, asset_ids, category)` - Apply tag to multiple assets
-
-### Coverage
-- `get_coverage_summary()` - Get monitoring coverage across all assets
-
-### Dry-Run / Preview
-- `dry_run_freshness(asset_id, table_path, expected_interval_hours, lookback_days)` - Test freshness threshold
-- `dry_run_schema(asset_id, table_path, lookback_days)` - Preview schema drift detection
-- `preview_alerts(rule_id, event_types, severities, lookback_days)` - Preview alert rule matches
-- `dry_run_metric(asset_id, table_path, metric_type, column_name, sensitivity, lookback_days)` - Test metric threshold
-
-### Recommendations
-- `recommend_freshness(asset_id, min_confidence, limit, include_monitored)` - Suggest freshness schedules
-- `recommend_metrics(asset_id, table_path, min_confidence, limit)` - Suggest quality metrics
-- `get_coverage_recommendations(asset_id, limit)` - Identify monitoring gaps
-- `recommend_thresholds(asset_id, days, limit)` - Suggest threshold adjustments
-
-### Jobs
+### Catalog (4 tools)
+- `get_lineage(asset_id, depth, direction)` - Data lineage graph
 - `job_status(job_id)` - Check async job status
+- `create_tag(asset_id, name, object_path, ...)` - Create and assign tags
+- `list_tags(asset_id)` / `apply_tags(asset_id, ...)` - List and apply tags
+
+### API Keys
+- `get_api_key_info()` - View current API key details and permissions
 
 ## Examples
 
@@ -148,37 +152,49 @@ The MCP server exposes these tools:
 
 ```
 User: Is my data healthy?
-Claude: [Runs /armor:status]
 
 Your data health status:
 - Overall: WARNING
-- 3 unresolved alerts
+- 3 unresolved alerts (1 critical, 2 warning)
 - 2 stale tables (orders, customers)
 - 1 unacknowledged schema change
+- Coverage: 65% (Tier 2: Protected)
 ```
 
-### Query Alerts
+### Get AI Recommendations
 
 ```
-User: What alerts fired yesterday?
-Claude: [Runs /armor:alerts]
+User: What should I monitor on my Snowflake warehouse?
 
-Yesterday's alerts:
-1. [CRITICAL] orders table stale for 6 hours
-2. [WARNING] schema change detected in users table
-3. [INFO] new column added to products
+Based on your table patterns and update frequency:
+1. orders (high traffic) - Add freshness check (hourly), row count metric
+2. customers (PII) - Enable schema drift monitoring, add null checks
+3. payments (financial) - Add freshness + row count + validity rules
+
+Want me to set these up? I can configure all three in one go.
 ```
 
-### Ask About Data
+### Daily Briefing
 
 ```
-User: What tables contain customer PII?
-Claude: [Runs /armor:ask]
+User: What happened overnight?
 
-Based on AnomalyArmor Intelligence:
-- customers.email (PII: email)
-- customers.phone (PII: phone)
-- orders.shipping_address (PII: address)
+Your daily briefing:
+- 2 new alerts: orders table stale (6h), schema change in users
+- Coverage improved: finance schema now at Tier 3 (Verified)
+- Recommendation: 4 tables still have no monitoring. Run /armor:recommend.
+```
+
+### Root Cause Analysis
+
+```
+User: Why is the orders table stale?
+
+Investigation results:
+- Last update: 6 hours ago (expected: hourly)
+- Upstream dependency: raw_orders was last updated 8 hours ago
+- Likely cause: upstream ETL job failed or delayed
+- Impact: 3 downstream dashboards affected
 ```
 
 ## Troubleshooting
