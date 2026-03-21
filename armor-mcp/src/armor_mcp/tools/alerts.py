@@ -7,6 +7,17 @@ from armor_mcp._decorators import sdk_tool
 
 @mcp.tool()
 @sdk_tool
+def get_alerts_summary():
+    """Get alert overview with counts by status and severity.
+
+    Quick snapshot of triggered, acknowledged, and resolved alerts.
+    For individual alerts use list_alerts.
+    """
+    return _get_client().alerts.summary()
+
+
+@mcp.tool()
+@sdk_tool
 def list_alerts(
     status: str | None = None,
     severity: str | None = None,
@@ -33,6 +44,29 @@ def list_alerts(
         asset_id=asset_id,
         from_date=from_date,
         to_date=to_date,
+        limit=limit,
+    )
+
+
+@mcp.tool()
+@sdk_tool
+def list_inbox_alerts(
+    severity: str | None = None,
+    asset_id: str | None = None,
+    limit: int = 25,
+):
+    """List unresolved alerts in inbox view (triggered + acknowledged only).
+
+    Focused view for triaging active alerts. Use update_alert to take action.
+
+    Args:
+        severity: Filter by severity ("info", "warning", "critical")
+        asset_id: Filter by asset UUID (from list_assets)
+        limit: Maximum results (default 25)
+    """
+    return _get_client().alerts.list_inbox(
+        severity=severity,
+        asset_id=asset_id,
         limit=limit,
     )
 
@@ -152,3 +186,83 @@ def create_alert_rule(
         destination_ids=destination_ids,
         asset_ids=asset_ids,
     )
+
+
+_VALID_RULE_ACTIONS = ("get", "update", "delete")
+
+
+@mcp.tool()
+@sdk_tool
+def manage_alert_rule(
+    action: str,
+    rule_id: str,
+    name: str | None = None,
+    event_types: list[str] | None = None,
+    severities: list[str] | None = None,
+    description: str | None = None,
+    is_active: bool | None = None,
+):
+    """Manage an existing alert rule: get details, update, or delete.
+
+    Use list_alert_rules to find rule IDs.
+
+    Args:
+        action: Operation: "get", "update", or "delete"
+        rule_id: Alert rule UUID (from list_alert_rules)
+        name: New name (for update)
+        event_types: New event types (for update)
+        severities: New severity levels (for update)
+        description: New description (for update)
+        is_active: Enable/disable rule (for update)
+    """
+    if action not in _VALID_RULE_ACTIONS:
+        raise ValueError(
+            f"Invalid action '{action}'. " f"Must be: {', '.join(_VALID_RULE_ACTIONS)}"
+        )
+
+    client = _get_client()
+
+    if action == "get":
+        return client.alerts.get_rule(rule_id)
+    elif action == "update":
+        return client.alerts.update_rule(
+            rule_id=rule_id,
+            name=name,
+            event_types=event_types,
+            severities=severities,
+            description=description,
+            is_active=is_active,
+        )
+    elif action == "delete":
+        return client.alerts.delete_rule(rule_id)
+    else:
+        raise ValueError(
+            f"Unhandled action '{action}', update dispatch to match _VALID_RULE_ACTIONS"
+        )
+
+
+@mcp.tool()
+@sdk_tool
+def get_alert_trends(period: str = "7d"):
+    """Get aggregate alert trend data across all assets.
+
+    Shows alert volume and patterns over time for trend analysis.
+
+    Args:
+        period: Time period: "24h", "7d", "30d", "90d" (default "7d")
+    """
+    return _get_client().alerts.trends(period=period)
+
+
+@mcp.tool()
+@sdk_tool
+def get_alert_history(alert_id: str):
+    """Get status change history for a specific alert.
+
+    Shows the full lifecycle: when it was triggered, acknowledged,
+    resolved, etc., with notes and who made each change.
+
+    Args:
+        alert_id: Alert UUID (from list_alerts)
+    """
+    return _get_client().alerts.history(alert_id)

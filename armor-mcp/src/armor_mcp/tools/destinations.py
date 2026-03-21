@@ -149,3 +149,105 @@ def setup_destination(
             f"Unhandled type '{destination_type}', "
             f"update dispatch to match _VALID_DESTINATION_TYPES"
         )
+
+
+_VALID_DEST_ACTIONS = ("get", "update", "delete", "test")
+
+
+@mcp.tool()
+@sdk_tool
+def manage_destination(
+    action: str,
+    destination_id: str,
+    name: str | None = None,
+    config: dict | None = None,
+    is_active: bool | None = None,
+):
+    """Manage an existing alert destination: get details, update, delete, or test.
+
+    Use list_destinations to find destination IDs.
+
+    Args:
+        action: Operation: "get", "update", "delete", or "test"
+        destination_id: Destination UUID (from list_destinations)
+        name: New display name (for update)
+        config: New config dict (for update, e.g., {"webhook_url": "..."})
+        is_active: Enable/disable (for update)
+    """
+    if action not in _VALID_DEST_ACTIONS:
+        raise ValueError(
+            f"Invalid action '{action}'. " f"Must be: {', '.join(_VALID_DEST_ACTIONS)}"
+        )
+
+    client = _get_client()
+
+    if action == "get":
+        return client.alerts.get_destination(destination_id)
+    elif action == "update":
+        return client.alerts.update_destination(
+            destination_id=destination_id,
+            name=name,
+            config=config,
+            is_active=is_active,
+        )
+    elif action == "delete":
+        return client.alerts.delete_destination(destination_id)
+    elif action == "test":
+        return client.alerts.test_destination(destination_id)
+    else:
+        raise ValueError(
+            f"Unhandled action '{action}', update dispatch to match _VALID_DEST_ACTIONS"
+        )
+
+
+_VALID_RULE_DEST_ACTIONS = ("list", "link", "unlink")
+
+
+@mcp.tool()
+@sdk_tool
+def manage_rule_destinations(
+    action: str,
+    rule_id: str,
+    destination_ids: list[str] | None = None,
+    destination_id: str | None = None,
+):
+    """Manage which destinations an alert rule routes to.
+
+    Args:
+        action: Operation:
+                "list" - list destinations linked to this rule
+                "link" - link destinations to the rule (requires destination_ids)
+                "unlink" - unlink a destination from the rule (requires destination_id)
+        rule_id: Alert rule UUID (from list_alert_rules)
+        destination_ids: Destination UUIDs to link (for link action)
+        destination_id: Single destination UUID to unlink (for unlink action)
+    """
+    if action not in _VALID_RULE_DEST_ACTIONS:
+        raise ValueError(
+            f"Invalid action '{action}'. "
+            f"Must be: {', '.join(_VALID_RULE_DEST_ACTIONS)}"
+        )
+
+    client = _get_client()
+
+    if action == "list":
+        return client.alerts.list_rule_destinations(rule_id)
+    elif action == "link":
+        if not destination_ids:
+            raise ValueError("destination_ids is required for 'link' action")
+        return client.alerts.link_destinations_to_rule(
+            rule_id=rule_id,
+            destination_ids=destination_ids,
+        )
+    elif action == "unlink":
+        if not destination_id:
+            raise ValueError("destination_id is required for 'unlink' action")
+        return client.alerts.unlink_destination_from_rule(
+            rule_id=rule_id,
+            destination_id=destination_id,
+        )
+    else:
+        raise ValueError(
+            f"Unhandled action '{action}', "
+            f"update dispatch to match _VALID_RULE_DEST_ACTIONS"
+        )

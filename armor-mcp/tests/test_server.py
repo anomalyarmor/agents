@@ -5,12 +5,11 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from armor_mcp._app import mcp
 
 
 class TestToolRegistration:
-    """All 29 consolidated tools must be registered."""
+    """All 52 consolidated tools must be registered."""
 
     def test_all_tools_registered(self):
         # Import server to trigger tool registration
@@ -20,36 +19,53 @@ class TestToolRegistration:
         tools = {t.name: t for t in tool_list}
 
         expected_tools = [
-            # Health & Discovery
+            # Health & Briefings
             "health_summary",
+            "get_todays_briefing",
+            # Assets
             "list_assets",
             "trigger_asset_discovery",
+            "create_asset",
+            "manage_asset",
             # Freshness
             "get_freshness_summary",
             "check_freshness",
             "setup_freshness",
             "list_freshness_schedules",
+            "manage_freshness_schedule",
             # Schema
             "get_schema_summary",
+            "get_schema_monitoring",
             "list_schema_changes",
             "create_schema_baseline",
             "enable_schema_monitoring",
             "disable_schema_monitoring",
             "dry_run_schema",
             # Metrics
+            "get_metrics_summary",
             "list_metrics",
             "create_metric",
+            "manage_metric",
             # Validity
+            "get_validity_summary",
             "list_validity_rules",
             "create_validity_rule",
+            "manage_validity_rule",
             # Alerts
+            "get_alerts_summary",
             "list_alerts",
+            "list_inbox_alerts",
             "update_alert",
             "list_alert_rules",
             "create_alert_rule",
+            "manage_alert_rule",
+            "get_alert_trends",
+            "get_alert_history",
             # Destinations
             "list_destinations",
             "setup_destination",
+            "manage_destination",
+            "manage_rule_destinations",
             # Intelligence
             "ask_question",
             "generate_intelligence",
@@ -57,11 +73,22 @@ class TestToolRegistration:
             "get_lineage",
             "job_status",
             # Tags
+            "create_tag",
             "list_tags",
             "apply_tags",
+            # Referential (TECH-935)
+            "create_referential_check",
+            "manage_referential",
+            # Recommendations (TECH-935)
+            "recommend",
+            # Coverage (TECH-935)
+            "get_coverage",
+            "manage_coverage",
+            # API Keys (TECH-935)
+            "get_api_key_info",
         ]
 
-        assert len(expected_tools) == 29
+        assert len(expected_tools) == 52
 
         registered = set(tools.keys())
         missing = set(expected_tools) - registered
@@ -131,10 +158,13 @@ class TestMain:
         mock_auth = MagicMock()
         with patch("armor_mcp.server._create_auth_provider", return_value=mock_auth):
             with patch.object(mcp, "run") as mock_run:
-                with patch.dict(os.environ, {
-                    "MCP_TRANSPORT": "http",
-                    "PORT": "8080",
-                }):
+                with patch.dict(
+                    os.environ,
+                    {
+                        "MCP_TRANSPORT": "http",
+                        "PORT": "8080",
+                    },
+                ):
                     main()
 
         assert mcp.auth is mock_auth

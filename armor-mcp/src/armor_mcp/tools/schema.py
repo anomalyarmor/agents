@@ -93,6 +93,20 @@ def disable_schema_monitoring(asset_id: str):
 
 @mcp.tool()
 @sdk_tool
+def get_schema_monitoring(asset_id: str):
+    """Get schema monitoring configuration for an asset.
+
+    Shows whether monitoring is enabled, schedule type, baseline info,
+    and last check timestamp.
+
+    Args:
+        asset_id: Asset UUID (from list_assets)
+    """
+    return _get_client().schema.get(asset_id)
+
+
+@mcp.tool()
+@sdk_tool
 def dry_run_schema(asset_id: str, schedule_type: str = "1d"):
     """Preview schema drift detection without persisting. Compares current
     schema against baseline to show what changes would be detected.

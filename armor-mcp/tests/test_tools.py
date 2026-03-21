@@ -7,7 +7,6 @@ pipeline works end-to-end without a real SDK connection.
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 _TOOL_MODULES = [
     "armor_mcp.tools.health",
@@ -18,6 +17,11 @@ _TOOL_MODULES = [
     "armor_mcp.tools.destinations",
     "armor_mcp.tools.intelligence",
     "armor_mcp.tools.catalog",
+    "armor_mcp.tools.referential",
+    "armor_mcp.tools.recommendations",
+    "armor_mcp.tools.coverage",
+    "armor_mcp.tools.api_keys",
+    "armor_mcp.tools.assets",
 ]
 
 
@@ -55,19 +59,19 @@ class TestHealthTools:
         assert result == {"overall_status": "healthy"}
         client.health.summary.assert_called_once()
 
-    def test_list_assets_with_filter(self):
+    def test_get_todays_briefing(self):
         client = _mock_client()
-        mock_asset = MagicMock()
-        mock_asset.model_dump.return_value = {"id": "a1", "source_type": "postgresql"}
-        client.assets.list.return_value = [mock_asset]
+        client.briefings.today.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"alerts_fired": 3, "stale_tables": 1})
+        )
 
-        from armor_mcp.tools.health import list_assets
+        from armor_mcp.tools.health import get_todays_briefing
 
         with _patch_client(client):
-            result = list_assets(asset_type="postgresql", limit=10)
+            result = get_todays_briefing()
 
-        assert result == [{"id": "a1", "source_type": "postgresql"}]
-        client.assets.list.assert_called_once_with(asset_type="postgresql", limit=10)
+        assert result == {"alerts_fired": 3, "stale_tables": 1}
+        client.briefings.today.assert_called_once()
 
 
 class TestFreshnessTools:
@@ -180,7 +184,9 @@ class TestAlertTools:
             result = update_alert(alert_id="a1", status="snoozed", duration_hours=48)
 
         assert result["status"] == "snoozed"
-        client.alerts.snooze.assert_called_once_with("a1", duration_hours=48, notes=None)
+        client.alerts.snooze.assert_called_once_with(
+            "a1", duration_hours=48, notes=None
+        )
 
 
 class TestDestinationTools:
@@ -336,7 +342,9 @@ class TestCatalogTools:
 
         assert result == {"nodes": [], "edges": []}
         client.lineage.get.assert_called_once_with(
-            asset_id="a1", depth=3, direction="upstream",
+            asset_id="a1",
+            depth=3,
+            direction="upstream",
         )
 
     def test_apply_tags(self):
@@ -356,3 +364,326 @@ class TestCatalogTools:
             )
 
         assert result == {"applied": ["pii", "sensitive"]}
+
+
+class TestAssetTools:
+
+    def test_list_assets_with_filter(self):
+        client = _mock_client()
+        mock_asset = MagicMock()
+        mock_asset.model_dump.return_value = {"id": "a1", "source_type": "postgresql"}
+        client.assets.list.return_value = [mock_asset]
+
+        from armor_mcp.tools.assets import list_assets
+
+        with _patch_client(client):
+            result = list_assets(asset_type="postgresql", limit=10)
+
+        assert result == [{"id": "a1", "source_type": "postgresql"}]
+        client.assets.list.assert_called_once_with(asset_type="postgresql", limit=10)
+
+    def test_create_asset(self):
+        client = _mock_client()
+        client.assets.create.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"id": "a1", "name": "Prod DB"})
+        )
+
+        from armor_mcp.tools.assets import create_asset
+
+        with _patch_client(client):
+            result = create_asset(
+                name="Prod DB",
+                source_type="postgresql",
+                connection_config={"host": "localhost"},
+            )
+
+        assert result == {"id": "a1", "name": "Prod DB"}
+        client.assets.create.assert_called_once_with(
+            name="Prod DB",
+            source_type="postgresql",
+            connection_config={"host": "localhost"},
+            description=None,
+        )
+
+    def test_manage_asset_get(self):
+        client = _mock_client()
+        client.assets.get.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"id": "a1", "name": "Prod DB"})
+        )
+
+        from armor_mcp.tools.assets import manage_asset
+
+        with _patch_client(client):
+            result = manage_asset(action="get", asset_id="a1")
+
+        assert result == {"id": "a1", "name": "Prod DB"}
+        client.assets.get.assert_called_once_with("a1")
+
+    def test_manage_asset_test_connection(self):
+        client = _mock_client()
+        client.assets.test_connection.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"success": True})
+        )
+
+        from armor_mcp.tools.assets import manage_asset
+
+        with _patch_client(client):
+            result = manage_asset(action="test", asset_id="a1")
+
+        assert result == {"success": True}
+
+    def test_manage_asset_invalid_action(self):
+        from armor_mcp.tools.assets import manage_asset
+
+        result = manage_asset(action="delete", asset_id="a1")
+        assert "error" in result
+        assert "Invalid action" in result["message"]
+
+
+class TestReferentialTools:
+
+    def test_create_referential_check(self):
+        client = _mock_client()
+        client.referential.create.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"id": "rc1"})
+        )
+
+        from armor_mcp.tools.referential import create_referential_check
+
+        with _patch_client(client):
+            result = create_referential_check(
+                asset_id="a1",
+                source_table="public.orders",
+                source_column="customer_id",
+                target_table="public.customers",
+                target_column="id",
+            )
+
+        assert result == {"id": "rc1"}
+        client.referential.create.assert_called_once()
+
+    def test_manage_referential_summary(self):
+        client = _mock_client()
+        client.referential.summary.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"total_checks": 5})
+        )
+
+        from armor_mcp.tools.referential import manage_referential
+
+        with _patch_client(client):
+            result = manage_referential(action="summary", asset_id="a1")
+
+        assert result == {"total_checks": 5}
+        client.referential.summary.assert_called_once_with("a1")
+
+    def test_manage_referential_execute(self):
+        client = _mock_client()
+        client.referential.execute.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"status": "PASS"})
+        )
+
+        from armor_mcp.tools.referential import manage_referential
+
+        with _patch_client(client):
+            result = manage_referential(action="execute", asset_id="a1", check_id="rc1")
+
+        assert result == {"status": "PASS"}
+        client.referential.execute.assert_called_once_with("a1", "rc1")
+
+    def test_manage_referential_requires_check_id(self):
+        from armor_mcp.tools.referential import manage_referential
+
+        result = manage_referential(action="get", asset_id="a1")
+        assert "error" in result
+        assert "check_id" in result["message"]
+
+    def test_manage_referential_invalid_action(self):
+        from armor_mcp.tools.referential import manage_referential
+
+        result = manage_referential(action="nope", asset_id="a1")
+        assert "error" in result
+        assert "Invalid action" in result["message"]
+
+
+class TestRecommendationTools:
+
+    def test_recommend_freshness(self):
+        client = _mock_client()
+        client.recommendations.freshness.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"recommendations": []})
+        )
+
+        from armor_mcp.tools.recommendations import recommend
+
+        with _patch_client(client):
+            result = recommend(recommendation_type="freshness", asset_id="a1")
+
+        assert result == {"recommendations": []}
+        client.recommendations.freshness.assert_called_once_with(
+            "a1",
+            min_confidence=0.5,
+            limit=20,
+            include_monitored=False,
+        )
+
+    def test_recommend_thresholds(self):
+        client = _mock_client()
+        client.recommendations.thresholds.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"recommendations": []})
+        )
+
+        from armor_mcp.tools.recommendations import recommend
+
+        with _patch_client(client):
+            result = recommend(
+                recommendation_type="thresholds",
+                asset_id="a1",
+                days=14,
+                limit=5,
+            )
+
+        assert result == {"recommendations": []}
+        client.recommendations.thresholds.assert_called_once_with(
+            "a1",
+            days=14,
+            limit=5,
+        )
+
+    def test_recommend_invalid_type(self):
+        from armor_mcp.tools.recommendations import recommend
+
+        result = recommend(recommendation_type="magic", asset_id="a1")
+        assert "error" in result
+        assert "Invalid type" in result["message"]
+
+
+class TestCoverageTools:
+
+    def test_get_coverage_company(self):
+        client = _mock_client()
+        client.coverage.company.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"company_score": 72})
+        )
+
+        from armor_mcp.tools.coverage import get_coverage
+
+        with _patch_client(client):
+            result = get_coverage(scope="company")
+
+        assert result == {"company_score": 72}
+        client.coverage.company.assert_called_once()
+
+    def test_get_coverage_asset(self):
+        client = _mock_client()
+        client.coverage.get.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"score": 85, "tier": "intelligent"})
+        )
+
+        from armor_mcp.tools.coverage import get_coverage
+
+        with _patch_client(client):
+            result = get_coverage(scope="asset", asset_id="a1")
+
+        assert result == {"score": 85, "tier": "intelligent"}
+        client.coverage.get.assert_called_once_with("a1")
+
+    def test_get_coverage_asset_requires_id(self):
+        from armor_mcp.tools.coverage import get_coverage
+
+        result = get_coverage(scope="asset")
+        assert "error" in result
+        assert "asset_id" in result["message"]
+
+    def test_manage_coverage_gaps(self):
+        client = _mock_client()
+        client.coverage.gaps.return_value = MagicMock(
+            model_dump=MagicMock(
+                return_value={"recommendations": [], "total_tables": 50}
+            )
+        )
+
+        from armor_mcp.tools.coverage import manage_coverage
+
+        with _patch_client(client):
+            result = manage_coverage(action="gaps", asset_id="a1", limit=10)
+
+        assert result["total_tables"] == 50
+        client.coverage.gaps.assert_called_once_with("a1", limit=10)
+
+    def test_manage_coverage_apply(self):
+        client = _mock_client()
+        client.coverage.apply.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"applied_count": 3, "failed_count": 0})
+        )
+
+        from armor_mcp.tools.coverage import manage_coverage
+
+        with _patch_client(client):
+            result = manage_coverage(
+                action="apply",
+                asset_id="a1",
+                types=["freshness"],
+            )
+
+        assert result["applied_count"] == 3
+        client.coverage.apply.assert_called_once_with(
+            "a1",
+            types=["freshness"],
+            table_paths=None,
+        )
+
+
+class TestAPIKeyTools:
+
+    def test_get_api_key_info_list(self):
+        client = _mock_client()
+        mock_key = MagicMock()
+        mock_key.model_dump.return_value = {"id": "k1", "name": "Production"}
+        client.api_keys.list.return_value = [mock_key]
+
+        from armor_mcp.tools.api_keys import get_api_key_info
+
+        with _patch_client(client):
+            result = get_api_key_info(view="list")
+
+        assert result == [{"id": "k1", "name": "Production"}]
+        client.api_keys.list.assert_called_once()
+
+    def test_get_api_key_info_detail(self):
+        client = _mock_client()
+        client.api_keys.get.return_value = MagicMock(
+            model_dump=MagicMock(return_value={"id": "k1", "name": "Production"})
+        )
+
+        from armor_mcp.tools.api_keys import get_api_key_info
+
+        with _patch_client(client):
+            result = get_api_key_info(view="detail", key_id="k1")
+
+        assert result == {"id": "k1", "name": "Production"}
+        client.api_keys.get.assert_called_once_with("k1")
+
+    def test_get_api_key_info_detail_requires_id(self):
+        from armor_mcp.tools.api_keys import get_api_key_info
+
+        result = get_api_key_info(view="detail")
+        assert "error" in result
+        assert "key_id" in result["message"]
+
+    def test_get_api_key_info_usage(self):
+        client = _mock_client()
+        client.api_keys.usage.return_value = {"total_requests": 1000}
+
+        from armor_mcp.tools.api_keys import get_api_key_info
+
+        with _patch_client(client):
+            result = get_api_key_info(view="usage")
+
+        assert result == {"total_requests": 1000}
+
+    def test_get_api_key_info_invalid_view(self):
+        from armor_mcp.tools.api_keys import get_api_key_info
+
+        result = get_api_key_info(view="secrets")
+        assert "error" in result
+        assert "Invalid view" in result["message"]

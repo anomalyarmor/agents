@@ -18,7 +18,10 @@ def get_freshness_summary():
 
 @mcp.tool()
 @sdk_tool
-def check_freshness(asset_id: str):
+def check_freshness(
+    asset_id: str,
+    stale_only: bool = False,
+):
     """Check freshness status for all monitored tables in an asset.
 
     Shows which tables are fresh, stale, or unknown. Use setup_freshness
@@ -26,7 +29,10 @@ def check_freshness(asset_id: str):
 
     Args:
         asset_id: Asset UUID (from list_assets)
+        stale_only: Only return stale tables (default False)
     """
+    if stale_only:
+        return _get_client().freshness.list(asset_id=asset_id, status="stale")
     return _get_client().freshness.check(asset_id)
 
 
@@ -34,25 +40,42 @@ def check_freshness(asset_id: str):
 @sdk_tool
 def setup_freshness(
     asset_id: str,
-    table_path: str,
+    table_path: str | None = None,
+    table_paths: list[str] | None = None,
     check_interval: str = "1h",
     expected_interval_hours: float | None = None,
     freshness_column: str | None = None,
     monitoring_mode: str = "auto_learn",
 ):
-    """Create freshness monitoring for a table.
+    """Create freshness monitoring for one or more tables.
 
     Use explore to find table paths, recommend_freshness for suggested intervals.
 
     Args:
         asset_id: Asset UUID (from list_assets)
-        table_path: Full table path (e.g., "public.orders")
+        table_path: Single table path (e.g., "public.orders")
+        table_paths: Multiple table paths for bulk setup (overrides table_path)
         check_interval: How often to check: "5m", "15m", "30m", "1h", "3h", "6h", "12h", "1d", "1w"
         expected_interval_hours: Hours until stale (required for explicit mode)
         freshness_column: Column to check (auto-detected if not provided)
         monitoring_mode: "auto_learn" (recommended, learns thresholds) or "explicit"
     """
-    return _get_client().freshness.create_schedule(
+    client = _get_client()
+
+    if table_paths:
+        return client.freshness.bulk_create_schedules(
+            asset_id=asset_id,
+            table_paths=table_paths,
+            check_interval=check_interval,
+            expected_interval_hours=expected_interval_hours,
+            freshness_column=freshness_column,
+            monitoring_mode=monitoring_mode,
+        )
+
+    if not table_path:
+        raise ValueError("Either table_path or table_paths is required")
+
+    return client.freshness.create_schedule(
         asset_id=asset_id,
         table_path=table_path,
         check_interval=check_interval,
@@ -77,3 +100,55 @@ def list_freshness_schedules(
         limit: Maximum results (default 25)
     """
     return _get_client().freshness.list_schedules(asset_id=asset_id, limit=limit)
+
+
+_VALID_SCHEDULE_ACTIONS = ("update", "delete")
+
+
+@mcp.tool()
+@sdk_tool
+def manage_freshness_schedule(
+    action: str,
+    schedule_id: str,
+    check_interval: str | None = None,
+    expected_interval_hours: float | None = None,
+    freshness_column: str | None = None,
+    monitoring_mode: str | None = None,
+    is_active: bool | None = None,
+):
+    """Update or delete a freshness monitoring schedule.
+
+    Use list_freshness_schedules to find schedule IDs.
+
+    Args:
+        action: Operation: "update" or "delete"
+        schedule_id: Schedule UUID (from list_freshness_schedules)
+        check_interval: New check interval (for update)
+        expected_interval_hours: New staleness threshold (for update)
+        freshness_column: New column to check (for update)
+        monitoring_mode: New mode: "auto_learn" or "explicit" (for update)
+        is_active: Enable/disable schedule (for update)
+    """
+    if action not in _VALID_SCHEDULE_ACTIONS:
+        raise ValueError(
+            f"Invalid action '{action}'. "
+            f"Must be: {', '.join(_VALID_SCHEDULE_ACTIONS)}"
+        )
+
+    client = _get_client()
+
+    if action == "update":
+        return client.freshness.update_schedule(
+            schedule_id=schedule_id,
+            check_interval=check_interval,
+            expected_interval_hours=expected_interval_hours,
+            freshness_column=freshness_column,
+            monitoring_mode=monitoring_mode,
+            is_active=is_active,
+        )
+    elif action == "delete":
+        return client.freshness.delete_schedule(schedule_id)
+    else:
+        raise ValueError(
+            f"Unhandled action '{action}', update dispatch to match _VALID_SCHEDULE_ACTIONS"
+        )
