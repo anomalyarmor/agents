@@ -1,214 +1,65 @@
 ---
 name: armor-coverage
-description: Analyze monitoring coverage and gaps. Handles "what am I monitoring", "what tables have no alerts", "coverage gaps", "monitoring status", "unmonitored tables".
+description: Analyze monitoring coverage, tiers, and gaps. Handles what am I monitoring, what tier am I at, coverage gaps, monitoring status, unmonitored tables, how do I improve coverage.
 hooks:
   PreToolUse:
-    - matcher: "Bash"
+    - matcher: Bash
       hooks:
         - type: command
-          command: "python ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-auth.py"
+          command: python ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-auth.py
           once: true
 ---
 
-# Monitoring Coverage
+# Monitoring Coverage and Tiers
 
-Analyze what's being monitored and identify gaps in your data observability coverage.
+Analyze what is being monitored, view your coverage tier, and identify gaps in your data observability.
 
 ## Prerequisites
 
-- AnomalyArmor API key configured (`~/.armor/config.yaml` or `ARMOR_API_KEY` env var)
-- Python SDK installed (`pip install anomalyarmor`)
+- AnomalyArmor API key configured
+- Python SDK installed (pip install anomalyarmor)
 
 ## When to Use
 
-- "What am I monitoring?"
-- "What tables have no alerts?"
-- "Show monitoring gaps"
-- "Which tables need freshness checks?"
-- "Coverage analysis"
-- "Unmonitored critical tables"
+- What am I monitoring?
+- What tier is my database at?
+- Show monitoring gaps
+- How do I improve my coverage score?
+- What tables have no alerts?
 
-## Coverage Categories
+## Coverage Tiers
 
-### Freshness Monitoring
-- Tables with freshness schedules vs unmonitored
-- SLA configurations
+Every asset earns a coverage score (0-100) based on 6 monitoring features:
 
-### Schema Monitoring
-- Tables with schema baselines
-- Drift detection status
+| Tier | Score | What You Catch |
+|------|-------|---------------|
+| Monitored | 10-29 | Schema changes that break pipelines |
+| Protected | 30-49 | Pipeline failures, data disappearing |
+| Verified | 50-69 | Stale data, value corruption |
+| Intelligent | 70+ | AI-powered anomaly detection |
 
-### Data Quality
-- Tables with metrics configured
-- Validity rules coverage
-
-### Alerting
-- Tables with alert rules
-- Notification coverage
+Score weights: Schema Drift (25%), Freshness (25%), Metrics (20%), Alert Routing (15%), Validity (10%), Intelligence (5%).
 
 ## Steps
 
-1. Get list of all assets
-2. Check freshness schedules
-3. Check metrics coverage
-4. Check validity rules
-5. Compare to identify gaps
+### Get Coverage Score and Tier
 
-## Example Usage
+Use client.coverage.get(asset_id) to get score, tier, and breakdown.
 
-### Get Coverage Overview
+### Get Company-Wide Coverage
 
-```python
-from anomalyarmor import Client
+Use client.coverage.company() for company rollup with per-asset scores.
 
-client = Client()
+### Find Coverage Gaps
 
-# Get all assets
-assets = client.assets.list(limit=100)
-total_assets = len(assets)
+Use client.coverage.gaps(asset_id) for prioritized recommendations.
 
-# Get freshness schedules
-schedules = client.freshness.list_schedules(limit=100)
-freshness_covered = len(set(s.asset_id for s in schedules))
+### Apply Recommendations
 
-# Get health summary
-health = client.health.summary()
+Use client.coverage.apply(asset_id) to batch-apply all recommendations.
 
-print(f"=== MONITORING COVERAGE ===")
-print(f"\nTotal Assets: {total_assets}")
-print(f"Freshness Monitored: {freshness_covered} ({100*freshness_covered//total_assets}%)")
-print(f"\nHealth Status: {health.overall_status.upper()}")
-```
+## Related Skills
 
-### Find Unmonitored Tables
-
-```python
-# Get all asset IDs
-all_asset_ids = {a.id for a in assets}
-
-# Get monitored asset IDs from freshness
-monitored_ids = {s.asset_id for s in schedules}
-
-# Find gaps
-unmonitored = all_asset_ids - monitored_ids
-
-print(f"\nUnmonitored Tables ({len(unmonitored)}):")
-for asset in assets:
-    if asset.id in unmonitored:
-        print(f"  {asset.qualified_name}")
-```
-
-### Check Per-Asset Coverage
-
-```python
-# Check coverage for a specific asset
-asset_id = "asset-uuid"
-
-# Freshness
-try:
-    freshness = client.freshness.status(asset_id)
-    has_freshness = True
-except Exception:
-    has_freshness = False
-
-# Metrics
-metrics = client.metrics.list(asset_id)
-has_metrics = len(metrics) > 0
-
-# Validity
-rules = client.validity.list(asset_id)
-has_validity = len(rules) > 0
-
-# Schema
-try:
-    schema = client.schema.baseline(asset_id)
-    has_schema = True
-except Exception:
-    has_schema = False
-
-print(f"Coverage for {asset_id}:")
-print(f"  Freshness: {'✓' if has_freshness else '✗'}")
-print(f"  Schema: {'✓' if has_schema else '✗'}")
-print(f"  Metrics: {'✓' if has_metrics else '✗'} ({len(metrics)} metrics)")
-print(f"  Validity: {'✓' if has_validity else '✗'} ({len(rules)} rules)")
-```
-
-### Prioritize Coverage Gaps
-
-```python
-# Find critical tables without monitoring
-critical_assets = [a for a in assets if 'production' in a.qualified_name.lower()]
-
-print("\nCritical Tables Needing Attention:")
-for asset in critical_assets:
-    metrics = client.metrics.list(asset.id)
-    rules = client.validity.list(asset.id)
-
-    if len(metrics) == 0 and len(rules) == 0:
-        print(f"  {asset.qualified_name}")
-        print(f"    NO MONITORING - Consider adding freshness + quality checks")
-```
-
-### Generate Coverage Report
-
-```python
-coverage_report = {
-    "total_assets": total_assets,
-    "freshness_coverage": {
-        "monitored": freshness_covered,
-        "percentage": 100 * freshness_covered // total_assets
-    },
-    "needs_attention": []
-}
-
-for asset in assets:
-    metrics = client.metrics.list(asset.id)
-    if len(metrics) == 0:
-        coverage_report["needs_attention"].append({
-            "asset": asset.qualified_name,
-            "missing": "data quality metrics"
-        })
-
-print(f"Coverage Report: {coverage_report}")
-```
-
-## Expected Output
-
-```
-=== MONITORING COVERAGE ===
-
-Total Assets: 45
-Freshness Monitored: 38 (84%)
-Schema Monitored: 42 (93%)
-Metrics Configured: 35 (78%)
-Alert Rules: 28 (62%)
-
-Health Status: WARNING
-
-Coverage by Category:
-  Production Tables: 100% covered
-  Staging Tables: 75% covered
-  Raw Tables: 50% covered
-
-Unmonitored Tables (7):
-  raw.events_backup
-  staging.temp_orders
-  staging.test_data
-  archive.orders_2023
-  archive.customers_2023
-  sandbox.dev_table
-  sandbox.analysis
-
-Recommended Actions:
-  1. Add freshness monitoring to raw.events_backup
-  2. Review if archive tables need monitoring
-  3. Consider excluding sandbox from coverage metrics
-```
-
-## Follow-up Actions
-
-- For unmonitored critical tables: Use `/armor:monitor` to add freshness
-- For missing metrics: Use `/armor:quality` to add data quality checks
-- For low alert coverage: Use `/armor:alerts` to create rules
-- For schema gaps: Set up baselines via dashboard
-- To improve coverage: Focus on production-critical tables first
+- /armor:recommend - Get AI-driven recommendations for what to monitor
+- /armor:monitor - Set up freshness and schema monitoring
+- /armor:quality - Add metrics and validity rules

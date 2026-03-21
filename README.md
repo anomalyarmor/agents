@@ -2,7 +2,7 @@
 
 AI skills and MCP server for AnomalyArmor data observability. Monitor data quality, detect schema drift, and manage alerts directly from Claude Code, Cursor, or any MCP-compatible AI tool.
 
-**Version**: 0.6.0 | **Tools**: 29 consolidated MCP tools | **Skills**: 14 slash commands
+**Version**: 0.6.0 | **Tools**: 52 consolidated MCP tools | **Skills**: 14 slash commands
 
 ## Quick Start
 
