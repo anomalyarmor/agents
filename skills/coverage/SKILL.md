@@ -6,7 +6,7 @@ hooks:
     - matcher: Bash
       hooks:
         - type: command
-          command: python ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-auth.py
+          command: "python ${CLAUDE_PLUGIN_ROOT}/scripts/ensure-auth.py"
           once: true
 ---
 
