@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Any
 
+_MCP_USER_AGENT = "armor-mcp/1.0"
+
 # Singleton client instance for stdio mode.
 # Thread safety: stdio mode is single-threaded by design (one MCP session
 # per process). If FastMCP ever supports concurrent tool calls in stdio
@@ -42,7 +44,7 @@ def _get_client() -> Any:
 
         token = get_access_token()
         if token is not None:
-            return Client(api_key=token.token)
+            return Client(api_key=token.token, user_agent=_MCP_USER_AGENT)
     except (ImportError, RuntimeError):
         # ImportError: fastmcp.server.dependencies not available
         # RuntimeError: get_access_token() called outside HTTP request context
@@ -52,7 +54,7 @@ def _get_client() -> Any:
     global _client
     if _client is None:
         try:
-            _client = Client()
+            _client = Client(user_agent=_MCP_USER_AGENT)
         except AuthenticationError as e:
             raise RuntimeError(
                 "No API key configured. Set ARMOR_API_KEY env var or create ~/.armor/config.yaml"
