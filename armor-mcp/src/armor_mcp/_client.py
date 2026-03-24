@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
-_MCP_USER_AGENT = "armor-mcp/1.0"
+from armor_mcp import __version__
+
+_MCP_USER_AGENT = f"armor-mcp/{__version__}"
 
 # Singleton client instance for stdio mode.
 # Thread safety: stdio mode is single-threaded by design (one MCP session

@@ -73,4 +73,7 @@ class TestGetClient:
             result = client_mod._get_client()
 
         assert result is mock_client
-        mock_client_class.assert_called_once_with(api_key="clerk_jwt_token")
+        mock_client_class.assert_called_once_with(
+            api_key="clerk_jwt_token",
+            user_agent=client_mod._MCP_USER_AGENT,
+        )
