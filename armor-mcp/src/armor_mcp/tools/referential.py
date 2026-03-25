@@ -63,7 +63,7 @@ _VALID_REFERENTIAL_ACTIONS = (
 
 @mcp.tool(
     annotations=ToolAnnotations(destructiveHint=True),
-    tags={"referential", "delete"},
+    tags={"referential", "read", "write", "delete"},
 )
 @sdk_tool
 async def manage_referential(

@@ -172,7 +172,7 @@ _VALID_DEST_ACTIONS = ("get", "update", "delete", "test")
 
 @mcp.tool(
     annotations=ToolAnnotations(destructiveHint=True),
-    tags={"destinations", "delete"},
+    tags={"destinations", "read", "write", "delete"},
 )
 @sdk_tool
 async def manage_destination(
@@ -225,7 +225,7 @@ _VALID_RULE_DEST_ACTIONS = ("list", "link", "unlink")
 
 @mcp.tool(
     annotations=ToolAnnotations(destructiveHint=True),
-    tags={"destinations", "delete"},
+    tags={"destinations", "read", "write", "delete"},
 )
 @sdk_tool
 async def manage_rule_destinations(

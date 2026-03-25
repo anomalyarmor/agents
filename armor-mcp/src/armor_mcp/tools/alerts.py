@@ -207,7 +207,7 @@ async def create_alert_rule(
 _VALID_RULE_ACTIONS = ("get", "update", "delete")
 
 
-@mcp.tool(annotations=ToolAnnotations(destructiveHint=True), tags={"alerts", "delete"})
+@mcp.tool(annotations=ToolAnnotations(destructiveHint=True), tags={"alerts", "read", "write", "delete"})
 @sdk_tool
 async def manage_alert_rule(
     action: str,

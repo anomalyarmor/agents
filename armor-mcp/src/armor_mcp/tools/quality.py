@@ -89,7 +89,7 @@ _VALID_METRIC_ACTIONS = ("get", "update", "delete", "capture", "snapshots")
 
 @mcp.tool(
     annotations=ToolAnnotations(destructiveHint=True),
-    tags={"quality", "delete"},
+    tags={"quality", "read", "write", "delete"},
 )
 @sdk_tool
 async def manage_metric(
@@ -248,7 +248,7 @@ _VALID_VALIDITY_ACTIONS = ("get", "update", "delete", "check", "results")
 
 @mcp.tool(
     annotations=ToolAnnotations(destructiveHint=True),
-    tags={"quality", "delete"},
+    tags={"quality", "read", "write", "delete"},
 )
 @sdk_tool
 async def manage_validity_rule(

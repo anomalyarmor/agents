@@ -128,7 +128,7 @@ _VALID_SCHEDULE_ACTIONS = ("update", "delete")
 
 @mcp.tool(
     annotations=ToolAnnotations(destructiveHint=True),
-    tags={"freshness", "delete"},
+    tags={"freshness", "write", "delete"},
 )
 @sdk_tool
 async def manage_freshness_schedule(

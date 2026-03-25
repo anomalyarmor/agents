@@ -49,7 +49,7 @@ _VALID_COVERAGE_ACTIONS = ("gaps", "apply")
 
 @mcp.tool(
     annotations=ToolAnnotations(readOnlyHint=False),
-    tags={"coverage", "write"},
+    tags={"coverage", "read", "write"},
 )
 @sdk_tool
 async def manage_coverage(
