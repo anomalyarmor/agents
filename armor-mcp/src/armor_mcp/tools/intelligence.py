@@ -82,10 +82,10 @@ async def generate_intelligence(
         await ctx.report_progress(progress or 0, 100)
         await ctx.info(f"Intelligence generation: {status_value}")
 
-        if status_value in ("completed", "failed"):
+        if status_value in ("completed", "failed", "cancelled", "timed_out", "error"):
             break
         await asyncio.sleep(3)
 
-    if status_value == "failed":
-        raise ToolError(f"Intelligence generation failed: {_attr(status, 'error', 'unknown error')}")
+    if status_value != "completed":
+        raise ToolError(f"Intelligence generation {status_value}: {_attr(status, 'error', 'unknown error')}")
     return status
