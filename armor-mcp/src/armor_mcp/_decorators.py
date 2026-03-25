@@ -2,33 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from functools import wraps
-from typing import Any, Callable, TypeVar
+from typing import Any, Callable
 
-T = TypeVar("T")
-
-
-class ToolError(Exception):
-    """Structured error for tool functions.
-
-    Allows tools to return error responses with extra context fields
-    (e.g., oauth_url) through the sdk_tool error boundary, while
-    keeping a consistent {"error": ..., "message": ...} shape.
-
-    Usage:
-        raise ToolError(
-            "Connect your Slack workspace first.",
-            error_type="NoSlackConnection",
-            oauth_url="https://...",
-        )
-        # sdk_tool serializes to:
-        # {"error": "NoSlackConnection", "message": "Connect your...", "oauth_url": "https://..."}
-    """
-
-    def __init__(self, message: str, error_type: str = "ToolError", **details: Any):
-        super().__init__(message)
-        self.error_type = error_type
-        self.details = details
+from fastmcp.exceptions import ToolError
 
 
 def _attr(obj: Any, key: str, default: Any = None) -> Any:
@@ -48,37 +26,59 @@ def _attr(obj: Any, key: str, default: Any = None) -> Any:
     return default
 
 
-def sdk_tool(func: Callable[..., T]) -> Callable[..., dict | list[dict]]:
+def _serialize(result: Any) -> Any:
+    """Serialize SDK results (Pydantic models, lists, dicts) to JSON-safe dicts.
+
+    Used by both tools (return dict) and resources (dict then json.dumps).
+    """
+    if isinstance(result, list):
+        return [
+            item.model_dump() if hasattr(item, "model_dump") else item
+            for item in result
+        ]
+    if hasattr(result, "model_dump"):
+        return result.model_dump()
+    if isinstance(result, dict):
+        return result
+    return {"result": result}
+
+
+def sdk_tool(func: Callable) -> Callable:
     """Decorator for SDK-wrapping tools.
 
-    Handles:
-    - Pydantic model serialization via model_dump()
-    - ToolError with structured details (extra fields preserved)
-    - Generic exception handling with typed error responses
-    - List serialization
+    Handles two cross-cutting concerns:
+    1. Serialization: Pydantic models/lists -> dicts via _serialize()
+    2. Error boundary: Exceptions -> FastMCP ToolError (proper MCP error channel)
+
+    Supports both sync and async tool functions.
     """
+    if asyncio.iscoroutinefunction(func):
 
-    @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> dict | list[dict]:
-        try:
-            result = func(*args, **kwargs)
-            if isinstance(result, list):
-                return [
-                    item.model_dump() if hasattr(item, "model_dump") else item
-                    for item in result
-                ]
-            if hasattr(result, "model_dump"):
-                return result.model_dump()
-            if isinstance(result, dict):
-                return result
-            return {"result": result}
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except ToolError as e:
-            response: dict[str, Any] = {"error": e.error_type, "message": str(e)}
-            response.update(e.details)
-            return response
-        except Exception as e:
-            return {"error": type(e).__name__, "message": str(e)}
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                result = await func(*args, **kwargs)
+                return _serialize(result)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except ToolError:
+                raise
+            except Exception as e:
+                raise ToolError(str(e)) from e
 
-    return wrapper
+        return async_wrapper
+    else:
+
+        @wraps(func)
+        def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                result = func(*args, **kwargs)
+                return _serialize(result)
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            except ToolError:
+                raise
+            except Exception as e:
+                raise ToolError(str(e)) from e
+
+        return sync_wrapper

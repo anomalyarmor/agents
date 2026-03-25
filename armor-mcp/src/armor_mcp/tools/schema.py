@@ -1,23 +1,28 @@
 """Schema monitoring tools."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"schema", "read"})
 @sdk_tool
-def get_schema_summary():
+async def get_schema_summary():
     """Get schema drift summary with total changes, unacknowledged count, and severity breakdown.
 
     For individual changes use list_schema_changes.
     """
-    return _get_client().schema.summary()
+    client = _get_client()
+    return await asyncio.to_thread(client.schema.summary)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"schema", "read"})
 @sdk_tool
-def list_schema_changes(
+async def list_schema_changes(
     asset_id: str | None = None,
     severity: str | None = None,
     unacknowledged_only: bool = False,
@@ -34,7 +39,9 @@ def list_schema_changes(
         unacknowledged_only: Only return unacknowledged changes (default false)
         limit: Maximum results (default 25)
     """
-    return _get_client().schema.changes(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.schema.changes,
         asset_id=asset_id,
         severity=severity,
         unacknowledged_only=unacknowledged_only,
@@ -42,9 +49,9 @@ def list_schema_changes(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"schema", "write"})
 @sdk_tool
-def create_schema_baseline(asset_id: str, description: str | None = None):
+async def create_schema_baseline(asset_id: str, description: str | None = None):
     """Capture current schema as baseline for drift detection.
 
     Required before enable_schema_monitoring can detect changes.
@@ -53,12 +60,13 @@ def create_schema_baseline(asset_id: str, description: str | None = None):
         asset_id: Asset UUID (from list_assets)
         description: Optional description for the baseline
     """
-    return _get_client().schema.create_baseline(asset_id, description=description)
+    client = _get_client()
+    return await asyncio.to_thread(client.schema.create_baseline, asset_id, description=description)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"schema", "write"})
 @sdk_tool
-def enable_schema_monitoring(
+async def enable_schema_monitoring(
     asset_id: str,
     schedule_type: str = "1d",
     auto_create_baseline: bool = True,
@@ -73,27 +81,30 @@ def enable_schema_monitoring(
         schedule_type: How often to check for drift: "5m", "1h", "6h", "1d", "1w"
         auto_create_baseline: Create baseline if none exists (default True)
     """
-    return _get_client().schema.enable_monitoring(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.schema.enable_monitoring,
         asset_id=asset_id,
         schedule_type=schedule_type,
         auto_create_baseline=auto_create_baseline,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(destructiveHint=True), tags={"schema", "delete"})
 @sdk_tool
-def disable_schema_monitoring(asset_id: str):
+async def disable_schema_monitoring(asset_id: str):
     """Disable schema drift monitoring for an asset. Keeps baseline for re-enabling.
 
     Args:
         asset_id: Asset UUID (from list_assets)
     """
-    return _get_client().schema.disable_monitoring(asset_id)
+    client = _get_client()
+    return await asyncio.to_thread(client.schema.disable_monitoring, asset_id)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"schema", "read"})
 @sdk_tool
-def get_schema_monitoring(asset_id: str):
+async def get_schema_monitoring(asset_id: str):
     """Get schema monitoring configuration for an asset.
 
     Shows whether monitoring is enabled, schedule type, baseline info,
@@ -102,12 +113,13 @@ def get_schema_monitoring(asset_id: str):
     Args:
         asset_id: Asset UUID (from list_assets)
     """
-    return _get_client().schema.get(asset_id)
+    client = _get_client()
+    return await asyncio.to_thread(client.schema.get, asset_id)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"schema", "read"})
 @sdk_tool
-def dry_run_schema(asset_id: str, schedule_type: str = "1d"):
+async def dry_run_schema(asset_id: str, schedule_type: str = "1d"):
     """Preview schema drift detection without persisting. Compares current
     schema against baseline to show what changes would be detected.
 
@@ -117,7 +129,9 @@ def dry_run_schema(asset_id: str, schedule_type: str = "1d"):
         asset_id: Asset UUID (from list_assets)
         schedule_type: Schedule for alert estimation: "1h", "1d", "1w"
     """
-    return _get_client().schema.dry_run(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.schema.dry_run,
         asset_id=asset_id,
         schedule_type=schedule_type,
     )

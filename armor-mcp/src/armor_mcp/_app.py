@@ -6,4 +6,8 @@ need to register on the mcp instance.
 
 from fastmcp import FastMCP
 
-mcp = FastMCP("armor-mcp", instructions="AnomalyArmor Data Observability Tools")
+mcp = FastMCP(
+    "armor-mcp",
+    instructions="AnomalyArmor Data Observability Tools",
+    mask_error_details=True,
+)

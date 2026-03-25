@@ -1,24 +1,35 @@
 """Freshness monitoring tools."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"freshness", "read"},
+)
 @sdk_tool
-def get_freshness_summary():
+async def get_freshness_summary():
     """Get freshness monitoring summary with counts of fresh, stale, and unknown tables.
 
     For a quick overview use health_summary. For per-table details
     use check_freshness.
     """
-    return _get_client().freshness.summary()
+    client = _get_client()
+    return await asyncio.to_thread(client.freshness.summary)
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"freshness", "read"},
+)
 @sdk_tool
-def check_freshness(
+async def check_freshness(
     asset_id: str,
     stale_only: bool = False,
 ):
@@ -31,14 +42,18 @@ def check_freshness(
         asset_id: Asset UUID (from list_assets)
         stale_only: Only return stale tables (default False)
     """
+    client = _get_client()
     if stale_only:
-        return _get_client().freshness.list(asset_id=asset_id, status="stale")
-    return _get_client().freshness.check(asset_id)
+        return await asyncio.to_thread(client.freshness.list, asset_id=asset_id, status="stale")
+    return await asyncio.to_thread(client.freshness.check, asset_id)
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=False),
+    tags={"freshness", "write"},
+)
 @sdk_tool
-def setup_freshness(
+async def setup_freshness(
     asset_id: str,
     table_path: str | None = None,
     table_paths: list[str] | None = None,
@@ -63,7 +78,8 @@ def setup_freshness(
     client = _get_client()
 
     if table_paths:
-        return client.freshness.bulk_create_schedules(
+        return await asyncio.to_thread(
+            client.freshness.bulk_create_schedules,
             asset_id=asset_id,
             table_paths=table_paths,
             check_interval=check_interval,
@@ -75,7 +91,8 @@ def setup_freshness(
     if not table_path:
         raise ValueError("Either table_path or table_paths is required")
 
-    return client.freshness.create_schedule(
+    return await asyncio.to_thread(
+        client.freshness.create_schedule,
         asset_id=asset_id,
         table_path=table_path,
         check_interval=check_interval,
@@ -85,9 +102,12 @@ def setup_freshness(
     )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"freshness", "read"},
+)
 @sdk_tool
-def list_freshness_schedules(
+async def list_freshness_schedules(
     asset_id: str | None = None,
     limit: int = 25,
 ):
@@ -99,15 +119,19 @@ def list_freshness_schedules(
         asset_id: Filter by asset UUID (from list_assets)
         limit: Maximum results (default 25)
     """
-    return _get_client().freshness.list_schedules(asset_id=asset_id, limit=limit)
+    client = _get_client()
+    return await asyncio.to_thread(client.freshness.list_schedules, asset_id=asset_id, limit=limit)
 
 
 _VALID_SCHEDULE_ACTIONS = ("update", "delete")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(destructiveHint=True),
+    tags={"freshness", "write", "delete"},
+)
 @sdk_tool
-def manage_freshness_schedule(
+async def manage_freshness_schedule(
     action: str,
     schedule_id: str,
     check_interval: str | None = None,
@@ -138,7 +162,8 @@ def manage_freshness_schedule(
     client = _get_client()
 
     if action == "update":
-        return client.freshness.update_schedule(
+        return await asyncio.to_thread(
+            client.freshness.update_schedule,
             schedule_id=schedule_id,
             check_interval=check_interval,
             expected_interval_hours=expected_interval_hours,
@@ -147,7 +172,7 @@ def manage_freshness_schedule(
             is_active=is_active,
         )
     elif action == "delete":
-        return client.freshness.delete_schedule(schedule_id)
+        return await asyncio.to_thread(client.freshness.delete_schedule, schedule_id)
     else:
         raise ValueError(
             f"Unhandled action '{action}', update dispatch to match _VALID_SCHEDULE_ACTIONS"

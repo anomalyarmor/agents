@@ -1,5 +1,9 @@
 """Catalog tools: lineage, jobs, and tags."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
@@ -7,9 +11,9 @@ from armor_mcp._decorators import sdk_tool
 # -- Lineage -----------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"lineage", "read"})
 @sdk_tool
-def get_lineage(
+async def get_lineage(
     asset_id: str,
     depth: int = 2,
     direction: str = "both",
@@ -27,8 +31,9 @@ def get_lineage(
     """
     client = _get_client()
     if list_all:
-        return client.lineage.list(asset_id=asset_id)
-    return client.lineage.get(
+        return await asyncio.to_thread(client.lineage.list, asset_id=asset_id)
+    return await asyncio.to_thread(
+        client.lineage.get,
         asset_id=asset_id,
         depth=depth,
         direction=direction,
@@ -38,23 +43,24 @@ def get_lineage(
 # -- Jobs --------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"catalog", "read"})
 @sdk_tool
-def job_status(job_id: str):
+async def job_status(job_id: str):
     """Check status of an async job (discovery, intelligence generation, etc.).
 
     Args:
         job_id: Job UUID (from trigger_asset_discovery, generate_intelligence, etc.)
     """
-    return _get_client().jobs.get(job_id)
+    client = _get_client()
+    return await asyncio.to_thread(client.jobs.get, job_id)
 
 
 # -- Tags --------------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"catalog", "write"})
 @sdk_tool
-def create_tag(
+async def create_tag(
     name: str,
     description: str | None = None,
     color: str | None = None,
@@ -68,16 +74,18 @@ def create_tag(
         description: Optional description of the tag's purpose
         color: Optional hex color code (e.g., "#FF5733")
     """
-    return _get_client().tags.create(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.tags.create,
         name=name,
         description=description,
         color=color,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"catalog", "read"})
 @sdk_tool
-def list_tags(asset_id: str, object_path: str | None = None):
+async def list_tags(asset_id: str, object_path: str | None = None):
     """List tags applied to database objects within an asset.
 
     Use explore to find valid object paths.
@@ -86,12 +94,13 @@ def list_tags(asset_id: str, object_path: str | None = None):
         asset_id: Asset UUID (from list_assets)
         object_path: Filter to tags on a specific object (e.g., "public.users.email")
     """
-    return _get_client().tags.list(asset_id=asset_id, object_path=object_path)
+    client = _get_client()
+    return await asyncio.to_thread(client.tags.list, asset_id=asset_id, object_path=object_path)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"catalog", "write"})
 @sdk_tool
-def apply_tags(
+async def apply_tags(
     asset_id: str,
     object_path: str | None = None,
     tags: list[str] | None = None,
@@ -112,7 +121,8 @@ def apply_tags(
     client = _get_client()
 
     if asset_ids:
-        return client.tags.bulk_apply(
+        return await asyncio.to_thread(
+            client.tags.bulk_apply,
             asset_ids=asset_ids,
             tags=tags or [],
             object_type=object_type,
@@ -123,7 +133,8 @@ def apply_tags(
     if not tags:
         raise ValueError("tags list is required")
 
-    return client.tags.apply(
+    return await asyncio.to_thread(
+        client.tags.apply,
         asset_id=asset_id,
         object_path=object_path,
         tags=tags,
