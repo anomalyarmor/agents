@@ -9,7 +9,7 @@ from mcp.types import ToolAnnotations
 
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
-from armor_mcp._decorators import _serialize, sdk_tool
+from armor_mcp._decorators import _attr, sdk_tool
 
 
 @mcp.tool(
@@ -48,6 +48,7 @@ async def ask_question(
     tags={"intelligence", "write"},
     timeout=300.0,
 )
+@sdk_tool
 async def generate_intelligence(
     asset_id: str,
     force_refresh: bool = False,
@@ -69,14 +70,14 @@ async def generate_intelligence(
         force_refresh=force_refresh,
     )
 
-    job_id = job.job_id if hasattr(job, "job_id") else job.get("job_id") if isinstance(job, dict) else None
+    job_id = _attr(job, "job_id")
     if not job_id:
-        return _serialize(job)
+        return job
 
     while True:
-        status = await asyncio.to_thread(client.jobs.status, job_id)
-        status_value = status.status if hasattr(status, "status") else status.get("status") if isinstance(status, dict) else None
-        progress = status.progress if hasattr(status, "progress") else status.get("progress") if isinstance(status, dict) else None
+        status = await asyncio.to_thread(client.jobs.get, job_id)
+        status_value = _attr(status, "status")
+        progress = _attr(status, "progress")
 
         await ctx.report_progress(progress or 0, 100)
         await ctx.info(f"Intelligence generation: {status_value}")
@@ -86,6 +87,5 @@ async def generate_intelligence(
         await asyncio.sleep(3)
 
     if status_value == "failed":
-        error_msg = status.error if hasattr(status, "error") else status.get("error") if isinstance(status, dict) else "unknown error"
-        raise ToolError(f"Intelligence generation failed: {error_msg}")
-    return _serialize(status)
+        raise ToolError(f"Intelligence generation failed: {_attr(status, 'error', 'unknown error')}")
+    return status

@@ -55,7 +55,7 @@ async def _create_slack_destination(client: Any, channel_name: str, name: str | 
 
     if not connections:
         try:
-            oauth = client.integrations.get_slack_oauth_url()
+            oauth = await asyncio.to_thread(client.integrations.get_slack_oauth_url)
             oauth_url = _attr(oauth, "url", str(oauth))
         except Exception:
             oauth_url = "Connect Slack via the AnomalyArmor dashboard"
