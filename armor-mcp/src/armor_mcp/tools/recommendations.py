@@ -1,5 +1,9 @@
 """Recommendation tools for AI-driven monitoring suggestions."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
@@ -7,9 +11,12 @@ from armor_mcp._decorators import sdk_tool
 _VALID_RECOMMEND_TYPES = ("freshness", "metrics", "coverage", "thresholds")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"recommendations", "read"},
+)
 @sdk_tool
-def recommend(
+async def recommend(
     recommendation_type: str,
     asset_id: str,
     limit: int = 20,
@@ -45,26 +52,30 @@ def recommend(
     client = _get_client()
 
     if recommendation_type == "freshness":
-        return client.recommendations.freshness(
+        return await asyncio.to_thread(
+            client.recommendations.freshness,
             asset_id,
             min_confidence=min_confidence,
             limit=limit,
             include_monitored=include_monitored,
         )
     elif recommendation_type == "metrics":
-        return client.recommendations.metrics(
+        return await asyncio.to_thread(
+            client.recommendations.metrics,
             asset_id,
             table_path=table_path,
             min_confidence=min_confidence,
             limit=limit,
         )
     elif recommendation_type == "coverage":
-        return client.recommendations.coverage(
+        return await asyncio.to_thread(
+            client.recommendations.coverage,
             asset_id,
             limit=limit,
         )
     elif recommendation_type == "thresholds":
-        return client.recommendations.thresholds(
+        return await asyncio.to_thread(
+            client.recommendations.thresholds,
             asset_id,
             days=days,
             limit=limit,

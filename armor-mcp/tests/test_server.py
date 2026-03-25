@@ -5,6 +5,8 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
+from fastmcp.exceptions import ToolError
+
 from armor_mcp._app import mcp
 
 
@@ -104,30 +106,26 @@ class TestToolValidation:
     def test_update_alert_validates_status(self):
         from armor_mcp.tools.alerts import update_alert
 
-        result = update_alert(alert_id="test-id", status="invalid")
-        assert "error" in result
-        assert "Invalid status" in result["message"]
+        with pytest.raises(ToolError, match="Invalid status"):
+            asyncio.run(update_alert(alert_id="test-id", status="invalid"))
 
     def test_setup_destination_requires_channel_for_slack(self):
         from armor_mcp.tools.destinations import setup_destination
 
-        result = setup_destination(destination_type="slack")
-        assert "error" in result
-        assert "channel_name" in result["message"]
+        with pytest.raises(ToolError, match="channel_name"):
+            asyncio.run(setup_destination(destination_type="slack"))
 
     def test_setup_destination_requires_url_for_webhook(self):
         from armor_mcp.tools.destinations import setup_destination
 
-        result = setup_destination(destination_type="webhook")
-        assert "error" in result
-        assert "webhook_url" in result["message"]
+        with pytest.raises(ToolError, match="webhook_url"):
+            asyncio.run(setup_destination(destination_type="webhook"))
 
     def test_setup_destination_rejects_unknown_type(self):
         from armor_mcp.tools.destinations import setup_destination
 
-        result = setup_destination(destination_type="fax")
-        assert "error" in result
-        assert "fax" in result["message"]
+        with pytest.raises(ToolError, match="fax"):
+            asyncio.run(setup_destination(destination_type="fax"))
 
 
 class TestMain:

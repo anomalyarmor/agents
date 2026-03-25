@@ -1,13 +1,20 @@
 """Coverage scoring and gap analysis tools."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"coverage", "read"},
+)
 @sdk_tool
-def get_coverage(
+async def get_coverage(
     scope: str = "company",
     asset_id: str | None = None,
 ):
@@ -28,11 +35,11 @@ def get_coverage(
     client = _get_client()
 
     if scope == "company":
-        return client.coverage.company()
+        return await asyncio.to_thread(client.coverage.company)
     elif scope == "asset":
         if not asset_id:
             raise ValueError("asset_id is required when scope='asset'")
-        return client.coverage.get(asset_id)
+        return await asyncio.to_thread(client.coverage.get, asset_id)
     else:
         raise ValueError(f"Unhandled scope '{scope}'")
 
@@ -40,9 +47,12 @@ def get_coverage(
 _VALID_COVERAGE_ACTIONS = ("gaps", "apply")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=False),
+    tags={"coverage", "write"},
+)
 @sdk_tool
-def manage_coverage(
+async def manage_coverage(
     action: str,
     asset_id: str,
     limit: int = 20,
@@ -72,9 +82,11 @@ def manage_coverage(
     client = _get_client()
 
     if action == "gaps":
-        return client.coverage.gaps(asset_id, limit=limit)
+        return await asyncio.to_thread(client.coverage.gaps, asset_id, limit=limit)
     elif action == "apply":
-        return client.coverage.apply(asset_id, types=types, table_paths=table_paths)
+        return await asyncio.to_thread(
+            client.coverage.apply, asset_id, types=types, table_paths=table_paths
+        )
     else:
         raise ValueError(
             f"Unhandled action '{action}', update dispatch to match _VALID_COVERAGE_ACTIONS"

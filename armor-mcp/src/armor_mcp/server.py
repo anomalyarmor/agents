@@ -22,8 +22,10 @@ from typing import Any
 
 from armor_mcp._app import mcp
 
-# Import tools package to trigger @mcp.tool() registration on all 29 tools.
+# Import tools, resources, and prompts to trigger registration.
 import armor_mcp.tools  # noqa: F401
+import armor_mcp.resources  # noqa: F401
+import armor_mcp.prompts  # noqa: F401
 
 
 # ============================================================================

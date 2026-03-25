@@ -1,13 +1,20 @@
 """Referential integrity tools."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=False),
+    tags={"referential", "write"},
+)
 @sdk_tool
-def create_referential_check(
+async def create_referential_check(
     asset_id: str,
     source_table: str,
     source_column: str,
@@ -30,7 +37,9 @@ def create_referential_check(
         name: Human-readable name (auto-generated if omitted)
         severity: Alert severity: "warning" (default), "error", "critical"
     """
-    return _get_client().referential.create(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.referential.create,
         asset_id=asset_id,
         source_table=source_table,
         source_column=source_column,
@@ -52,9 +61,12 @@ _VALID_REFERENTIAL_ACTIONS = (
 )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(destructiveHint=True),
+    tags={"referential", "delete"},
+)
 @sdk_tool
-def manage_referential(
+async def manage_referential(
     action: str,
     asset_id: str,
     check_id: str | None = None,
@@ -92,17 +104,20 @@ def manage_referential(
     client = _get_client()
 
     if action == "summary":
-        return client.referential.summary(asset_id)
+        return await asyncio.to_thread(client.referential.summary, asset_id)
     elif action == "list":
-        return client.referential.list(asset_id=asset_id, limit=limit)
+        return await asyncio.to_thread(
+            client.referential.list, asset_id=asset_id, limit=limit
+        )
     elif action == "get":
         if not check_id:
             raise ValueError("check_id is required for 'get' action")
-        return client.referential.get(asset_id, check_id)
+        return await asyncio.to_thread(client.referential.get, asset_id, check_id)
     elif action == "update":
         if not check_id:
             raise ValueError("check_id is required for 'update' action")
-        return client.referential.update(
+        return await asyncio.to_thread(
+            client.referential.update,
             asset_id=asset_id,
             check_id=check_id,
             name=name,
@@ -112,15 +127,17 @@ def manage_referential(
     elif action == "delete":
         if not check_id:
             raise ValueError("check_id is required for 'delete' action")
-        return client.referential.delete(asset_id, check_id)
+        return await asyncio.to_thread(client.referential.delete, asset_id, check_id)
     elif action == "execute":
         if not check_id:
             raise ValueError("check_id is required for 'execute' action")
-        return client.referential.execute(asset_id, check_id)
+        return await asyncio.to_thread(client.referential.execute, asset_id, check_id)
     elif action == "results":
         if not check_id:
             raise ValueError("check_id is required for 'results' action")
-        return client.referential.results(asset_id, check_id, limit=limit)
+        return await asyncio.to_thread(
+            client.referential.results, asset_id, check_id, limit=limit
+        )
     else:
         raise ValueError(
             f"Unhandled action '{action}', update dispatch to match _VALID_REFERENTIAL_ACTIONS"

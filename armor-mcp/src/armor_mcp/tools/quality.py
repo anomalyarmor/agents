@@ -1,5 +1,9 @@
 """Data quality tools: metrics and validity rules."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
@@ -7,9 +11,12 @@ from armor_mcp._decorators import sdk_tool
 # -- Metrics -----------------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"quality", "read"},
+)
 @sdk_tool
-def get_metrics_summary(asset_id: str):
+async def get_metrics_summary(asset_id: str):
     """Get metrics monitoring summary for an asset.
 
     Shows total metrics, active count, anomaly count, and per-type breakdown.
@@ -17,12 +24,16 @@ def get_metrics_summary(asset_id: str):
     Args:
         asset_id: Asset UUID (from list_assets)
     """
-    return _get_client().metrics.summary(asset_id)
+    client = _get_client()
+    return await asyncio.to_thread(client.metrics.summary, asset_id)
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"quality", "read"},
+)
 @sdk_tool
-def list_metrics(asset_id: str, limit: int = 25):
+async def list_metrics(asset_id: str, limit: int = 25):
     """List data quality metrics configured for an asset.
 
     Shows metric type, table, column, and active status.
@@ -32,12 +43,20 @@ def list_metrics(asset_id: str, limit: int = 25):
         asset_id: Asset UUID (from list_assets)
         limit: Maximum results (default 25)
     """
-    return _get_client().metrics.list(asset_id=asset_id, limit=limit)
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.metrics.list,
+        asset_id=asset_id,
+        limit=limit,
+    )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=False),
+    tags={"quality", "write"},
+)
 @sdk_tool
-def create_metric(
+async def create_metric(
     asset_id: str,
     table_path: str,
     metric_type: str,
@@ -55,7 +74,9 @@ def create_metric(
         column_name: Column to monitor (required for column-level metrics like
                      null_rate, mean, etc.)
     """
-    return _get_client().metrics.create(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.metrics.create,
         asset_id=asset_id,
         table_path=table_path,
         metric_type=metric_type,
@@ -66,9 +87,12 @@ def create_metric(
 _VALID_METRIC_ACTIONS = ("get", "update", "delete", "capture", "snapshots")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(destructiveHint=True),
+    tags={"quality", "delete"},
+)
 @sdk_tool
-def manage_metric(
+async def manage_metric(
     action: str,
     asset_id: str,
     metric_id: str,
@@ -104,9 +128,10 @@ def manage_metric(
     client = _get_client()
 
     if action == "get":
-        return client.metrics.get(asset_id, metric_id)
+        return await asyncio.to_thread(client.metrics.get, asset_id, metric_id)
     elif action == "update":
-        return client.metrics.update(
+        return await asyncio.to_thread(
+            client.metrics.update,
             asset_id=asset_id,
             metric_id=metric_id,
             is_active=is_active,
@@ -114,11 +139,16 @@ def manage_metric(
             sensitivity=sensitivity,
         )
     elif action == "delete":
-        return client.metrics.delete(asset_id, metric_id)
+        return await asyncio.to_thread(client.metrics.delete, asset_id, metric_id)
     elif action == "capture":
-        return client.metrics.capture(asset_id, metric_id)
+        return await asyncio.to_thread(client.metrics.capture, asset_id, metric_id)
     elif action == "snapshots":
-        return client.metrics.snapshots(asset_id, metric_id, limit=limit)
+        return await asyncio.to_thread(
+            client.metrics.snapshots,
+            asset_id,
+            metric_id,
+            limit=limit,
+        )
     else:
         raise ValueError(
             f"Unhandled action '{action}', update dispatch to match _VALID_METRIC_ACTIONS"
@@ -128,9 +158,12 @@ def manage_metric(
 # -- Validity Rules ----------------------------------------------------------
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"quality", "read"},
+)
 @sdk_tool
-def get_validity_summary(asset_id: str):
+async def get_validity_summary(asset_id: str):
     """Get validity rules summary for an asset.
 
     Shows total rules, active count, failing count, and per-type breakdown.
@@ -138,12 +171,16 @@ def get_validity_summary(asset_id: str):
     Args:
         asset_id: Asset UUID (from list_assets)
     """
-    return _get_client().validity.summary(asset_id)
+    client = _get_client()
+    return await asyncio.to_thread(client.validity.summary, asset_id)
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"quality", "read"},
+)
 @sdk_tool
-def list_validity_rules(asset_id: str, limit: int = 25):
+async def list_validity_rules(asset_id: str, limit: int = 25):
     """List data validity rules configured for an asset.
 
     Shows rule type, table, column, and active status.
@@ -153,12 +190,20 @@ def list_validity_rules(asset_id: str, limit: int = 25):
         asset_id: Asset UUID (from list_assets)
         limit: Maximum results (default 25)
     """
-    return _get_client().validity.list_rules(asset_id=asset_id, limit=limit)
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.validity.list_rules,
+        asset_id=asset_id,
+        limit=limit,
+    )
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=False),
+    tags={"quality", "write"},
+)
 @sdk_tool
-def create_validity_rule(
+async def create_validity_rule(
     asset_id: str,
     table_path: str,
     column_name: str,
@@ -185,7 +230,9 @@ def create_validity_rule(
         name: Human-readable rule name (auto-generated if omitted)
         severity: Alert severity when rule fails: "error" (default), "warning", "critical"
     """
-    return _get_client().validity.create_rule(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.validity.create_rule,
         asset_id=asset_id,
         table_path=table_path,
         column_name=column_name,
@@ -199,9 +246,12 @@ def create_validity_rule(
 _VALID_VALIDITY_ACTIONS = ("get", "update", "delete", "check", "results")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(destructiveHint=True),
+    tags={"quality", "delete"},
+)
 @sdk_tool
-def manage_validity_rule(
+async def manage_validity_rule(
     action: str,
     asset_id: str,
     rule_id: str,
@@ -239,9 +289,10 @@ def manage_validity_rule(
     client = _get_client()
 
     if action == "get":
-        return client.validity.get(asset_id, rule_id)
+        return await asyncio.to_thread(client.validity.get, asset_id, rule_id)
     elif action == "update":
-        return client.validity.update(
+        return await asyncio.to_thread(
+            client.validity.update,
             asset_id=asset_id,
             rule_id=rule_id,
             name=name,
@@ -250,11 +301,20 @@ def manage_validity_rule(
             is_active=is_active,
         )
     elif action == "delete":
-        return client.validity.delete(asset_id, rule_id)
+        return await asyncio.to_thread(client.validity.delete, asset_id, rule_id)
     elif action == "check":
-        return client.validity.check(asset_id=asset_id, rule_id=rule_id)
+        return await asyncio.to_thread(
+            client.validity.check,
+            asset_id=asset_id,
+            rule_id=rule_id,
+        )
     elif action == "results":
-        return client.validity.results(asset_id, rule_id, limit=limit)
+        return await asyncio.to_thread(
+            client.validity.results,
+            asset_id,
+            rule_id,
+            limit=limit,
+        )
     else:
         raise ValueError(
             f"Unhandled action '{action}', update dispatch to match _VALID_VALIDITY_ACTIONS"

@@ -1,5 +1,9 @@
 """API key information tools (read-only)."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
@@ -7,9 +11,12 @@ from armor_mcp._decorators import sdk_tool
 _VALID_API_KEY_VIEWS = ("list", "detail", "usage")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"api-keys", "read"},
+)
 @sdk_tool
-def get_api_key_info(
+async def get_api_key_info(
     view: str = "list",
     key_id: str | None = None,
 ):
@@ -30,13 +37,13 @@ def get_api_key_info(
     client = _get_client()
 
     if view == "list":
-        return client.api_keys.list()
+        return await asyncio.to_thread(client.api_keys.list)
     elif view == "detail":
         if not key_id:
             raise ValueError("key_id is required for 'detail' view")
-        return client.api_keys.get(key_id)
+        return await asyncio.to_thread(client.api_keys.get, key_id)
     elif view == "usage":
-        return client.api_keys.usage()
+        return await asyncio.to_thread(client.api_keys.usage)
     else:
         raise ValueError(
             f"Unhandled view '{view}', update dispatch to match _VALID_API_KEY_VIEWS"

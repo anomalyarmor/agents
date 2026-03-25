@@ -55,3 +55,9 @@ Thumbs.db
 .env
 .env.local
 armor-mcp/uv.lock
+
+# Claude Code local config
+.claude/
+
+# Docs (task planning, not shipped)
+docs/

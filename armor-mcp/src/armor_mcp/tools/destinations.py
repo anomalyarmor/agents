@@ -2,16 +2,24 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
+
+from mcp.types import ToolAnnotations
 
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
-from armor_mcp._decorators import ToolError, _attr, sdk_tool
+from fastmcp.exceptions import ToolError
+
+from armor_mcp._decorators import _attr, sdk_tool
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"destinations", "read"},
+)
 @sdk_tool
-def list_destinations(
+async def list_destinations(
     destination_type: str | None = None,
     active_only: bool = True,
 ):
@@ -24,13 +32,15 @@ def list_destinations(
         destination_type: Filter by type: "slack", "webhook", "email"
         active_only: Only return active destinations (default True)
     """
-    return _get_client().destinations.list(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.destinations.list,
         destination_type=destination_type,
         active_only=active_only,
     )
 
 
-def _create_slack_destination(client: Any, channel_name: str, name: str | None) -> Any:
+async def _create_slack_destination(client: Any, channel_name: str, name: str | None) -> Any:
     """Handle Slack OAuth discovery, channel lookup, and destination creation.
 
     Raises:
@@ -38,7 +48,7 @@ def _create_slack_destination(client: Any, channel_name: str, name: str | None) 
     """
     # Discover Slack OAuth connection
     try:
-        connections = client.integrations.list_slack_connections()
+        connections = await asyncio.to_thread(client.integrations.list_slack_connections)
     except AttributeError:
         # SDK version doesn't support this method
         connections = []
@@ -49,17 +59,17 @@ def _create_slack_destination(client: Any, channel_name: str, name: str | None) 
             oauth_url = _attr(oauth, "url", str(oauth))
         except Exception:
             oauth_url = "Connect Slack via the AnomalyArmor dashboard"
-        raise ToolError(
-            "Connect your Slack workspace first, then retry.",
-            error_type="NoSlackConnection",
-            oauth_url=oauth_url,
-        )
+        return {
+            "status": "action_required",
+            "message": "Connect your Slack workspace first, then retry.",
+            "oauth_url": oauth_url,
+        }
 
     connection = connections[0]
     conn_id = _attr(connection, "id")
 
     # Channel lookup with fuzzy matching
-    channels = client.integrations.get_slack_channels(conn_id)
+    channels = await asyncio.to_thread(client.integrations.get_slack_channels, conn_id)
 
     match = None
     close_matches = []
@@ -76,10 +86,11 @@ def _create_slack_destination(client: Any, channel_name: str, name: str | None) 
         msg = f"Channel '#{channel_name}' not found."
         if close_matches:
             msg += f" Similar: {', '.join(close_matches[:5])}"
-        raise ToolError(msg, error_type="NotFoundError")
+        raise ToolError(msg)
 
     channel_id, resolved_name = match
-    return client.integrations.create_slack_destination(
+    return await asyncio.to_thread(
+        client.integrations.create_slack_destination,
         connection_id=conn_id,
         channel_id=channel_id,
         channel_name=resolved_name,
@@ -90,9 +101,12 @@ def _create_slack_destination(client: Any, channel_name: str, name: str | None) 
 _VALID_DESTINATION_TYPES = ("slack", "webhook", "email")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=False),
+    tags={"destinations", "write"},
+)
 @sdk_tool
-def setup_destination(
+async def setup_destination(
     destination_type: str,
     name: str | None = None,
     channel_name: str | None = None,
@@ -129,17 +143,19 @@ def setup_destination(
     client = _get_client()
 
     if destination_type == "slack":
-        return _create_slack_destination(client, channel_name, name)
+        return await _create_slack_destination(client, channel_name, name)
 
     elif destination_type == "webhook":
-        return client.destinations.create(
+        return await asyncio.to_thread(
+            client.destinations.create,
             destination_type="webhook",
             name=name or "Webhook",
             config={"webhook_url": webhook_url},
         )
 
     elif destination_type == "email":
-        return client.destinations.create(
+        return await asyncio.to_thread(
+            client.destinations.create,
             destination_type="email",
             name=name or f"Email: {email}",
             config={"email": email},
@@ -154,9 +170,12 @@ def setup_destination(
 _VALID_DEST_ACTIONS = ("get", "update", "delete", "test")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(destructiveHint=True),
+    tags={"destinations", "delete"},
+)
 @sdk_tool
-def manage_destination(
+async def manage_destination(
     action: str,
     destination_id: str,
     name: str | None = None,
@@ -182,18 +201,19 @@ def manage_destination(
     client = _get_client()
 
     if action == "get":
-        return client.alerts.get_destination(destination_id)
+        return await asyncio.to_thread(client.alerts.get_destination, destination_id)
     elif action == "update":
-        return client.alerts.update_destination(
+        return await asyncio.to_thread(
+            client.alerts.update_destination,
             destination_id=destination_id,
             name=name,
             config=config,
             is_active=is_active,
         )
     elif action == "delete":
-        return client.alerts.delete_destination(destination_id)
+        return await asyncio.to_thread(client.alerts.delete_destination, destination_id)
     elif action == "test":
-        return client.alerts.test_destination(destination_id)
+        return await asyncio.to_thread(client.alerts.test_destination, destination_id)
     else:
         raise ValueError(
             f"Unhandled action '{action}', update dispatch to match _VALID_DEST_ACTIONS"
@@ -203,9 +223,12 @@ def manage_destination(
 _VALID_RULE_DEST_ACTIONS = ("list", "link", "unlink")
 
 
-@mcp.tool()
+@mcp.tool(
+    annotations=ToolAnnotations(destructiveHint=True),
+    tags={"destinations", "delete"},
+)
 @sdk_tool
-def manage_rule_destinations(
+async def manage_rule_destinations(
     action: str,
     rule_id: str,
     destination_ids: list[str] | None = None,
@@ -231,18 +254,20 @@ def manage_rule_destinations(
     client = _get_client()
 
     if action == "list":
-        return client.alerts.list_rule_destinations(rule_id)
+        return await asyncio.to_thread(client.alerts.list_rule_destinations, rule_id)
     elif action == "link":
         if not destination_ids:
             raise ValueError("destination_ids is required for 'link' action")
-        return client.alerts.link_destinations_to_rule(
+        return await asyncio.to_thread(
+            client.alerts.link_destinations_to_rule,
             rule_id=rule_id,
             destination_ids=destination_ids,
         )
     elif action == "unlink":
         if not destination_id:
             raise ValueError("destination_id is required for 'unlink' action")
-        return client.alerts.unlink_destination_from_rule(
+        return await asyncio.to_thread(
+            client.alerts.unlink_destination_from_rule,
             rule_id=rule_id,
             destination_id=destination_id,
         )

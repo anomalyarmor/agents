@@ -1,24 +1,29 @@
 """Alert management tools."""
 
+import asyncio
+
+from mcp.types import ToolAnnotations
+
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"alerts", "read"})
 @sdk_tool
-def get_alerts_summary():
+async def get_alerts_summary():
     """Get alert overview with counts by status and severity.
 
     Quick snapshot of triggered, acknowledged, and resolved alerts.
     For individual alerts use list_alerts.
     """
-    return _get_client().alerts.summary()
+    client = _get_client()
+    return await asyncio.to_thread(client.alerts.summary)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"alerts", "read"})
 @sdk_tool
-def list_alerts(
+async def list_alerts(
     status: str | None = None,
     severity: str | None = None,
     asset_id: str | None = None,
@@ -38,7 +43,9 @@ def list_alerts(
         to_date: End of date range (ISO 8601)
         limit: Maximum results (default 25, max 100)
     """
-    return _get_client().alerts.list(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.alerts.list,
         status=status,
         severity=severity,
         asset_id=asset_id,
@@ -48,9 +55,9 @@ def list_alerts(
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"alerts", "read"})
 @sdk_tool
-def list_inbox_alerts(
+async def list_inbox_alerts(
     severity: str | None = None,
     asset_id: str | None = None,
     limit: int = 25,
@@ -64,7 +71,9 @@ def list_inbox_alerts(
         asset_id: Filter by asset UUID (from list_assets)
         limit: Maximum results (default 25)
     """
-    return _get_client().alerts.list_inbox(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.alerts.list_inbox,
         severity=severity,
         asset_id=asset_id,
         limit=limit,
@@ -74,9 +83,9 @@ def list_inbox_alerts(
 _VALID_ALERT_STATUSES = ("acknowledged", "resolved", "dismissed", "snoozed")
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"alerts", "write"})
 @sdk_tool
-def update_alert(
+async def update_alert(
     alert_id: str,
     status: str,
     notes: str | None = None,
@@ -105,23 +114,26 @@ def update_alert(
 
     client = _get_client()
     if status == "acknowledged":
-        return client.alerts.acknowledge(alert_id, notes=notes)
+        return await asyncio.to_thread(client.alerts.acknowledge, alert_id, notes=notes)
     elif status == "resolved":
-        return client.alerts.resolve(
+        return await asyncio.to_thread(
+            client.alerts.resolve,
             alert_id,
             notes=notes,
             action_category=action_category,
             root_cause_category=root_cause_category,
         )
     elif status == "dismissed":
-        return client.alerts.dismiss(
+        return await asyncio.to_thread(
+            client.alerts.dismiss,
             alert_id,
             notes=notes,
             action_category=action_category,
             root_cause_category=root_cause_category,
         )
     elif status == "snoozed":
-        return client.alerts.snooze(
+        return await asyncio.to_thread(
+            client.alerts.snooze,
             alert_id,
             duration_hours=duration_hours,
             notes=notes,
@@ -132,9 +144,9 @@ def update_alert(
         )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"alerts", "read"})
 @sdk_tool
-def list_alert_rules(
+async def list_alert_rules(
     asset_id: str | None = None,
     active_only: bool = True,
 ):
@@ -147,15 +159,17 @@ def list_alert_rules(
         asset_id: Filter by asset UUID (from list_assets)
         active_only: Only return active rules (default True)
     """
-    return _get_client().alerts.list_rules(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.alerts.list_rules,
         asset_id=asset_id,
         active_only=active_only,
     )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"alerts", "write"})
 @sdk_tool
-def create_alert_rule(
+async def create_alert_rule(
     name: str,
     event_types: list[str] | None = None,
     severities: list[str] | None = None,
@@ -178,7 +192,9 @@ def create_alert_rule(
                          Falls back to default email if omitted.
         asset_ids: UUIDs of assets to scope the rule to (from list_assets). Omit for all.
     """
-    return _get_client().alerts.create_rule(
+    client = _get_client()
+    return await asyncio.to_thread(
+        client.alerts.create_rule,
         name=name,
         event_types=event_types,
         severities=severities,
@@ -191,9 +207,9 @@ def create_alert_rule(
 _VALID_RULE_ACTIONS = ("get", "update", "delete")
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(destructiveHint=True), tags={"alerts", "delete"})
 @sdk_tool
-def manage_alert_rule(
+async def manage_alert_rule(
     action: str,
     rule_id: str,
     name: str | None = None,
@@ -223,9 +239,10 @@ def manage_alert_rule(
     client = _get_client()
 
     if action == "get":
-        return client.alerts.get_rule(rule_id)
+        return await asyncio.to_thread(client.alerts.get_rule, rule_id)
     elif action == "update":
-        return client.alerts.update_rule(
+        return await asyncio.to_thread(
+            client.alerts.update_rule,
             rule_id=rule_id,
             name=name,
             event_types=event_types,
@@ -234,16 +251,16 @@ def manage_alert_rule(
             is_active=is_active,
         )
     elif action == "delete":
-        return client.alerts.delete_rule(rule_id)
+        return await asyncio.to_thread(client.alerts.delete_rule, rule_id)
     else:
         raise ValueError(
             f"Unhandled action '{action}', update dispatch to match _VALID_RULE_ACTIONS"
         )
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"alerts", "read"})
 @sdk_tool
-def get_alert_trends(period: str = "7d"):
+async def get_alert_trends(period: str = "7d"):
     """Get aggregate alert trend data across all assets.
 
     Shows alert volume and patterns over time for trend analysis.
@@ -251,12 +268,13 @@ def get_alert_trends(period: str = "7d"):
     Args:
         period: Time period: "24h", "7d", "30d", "90d" (default "7d")
     """
-    return _get_client().alerts.trends(period=period)
+    client = _get_client()
+    return await asyncio.to_thread(client.alerts.trends, period=period)
 
 
-@mcp.tool()
+@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"alerts", "read"})
 @sdk_tool
-def get_alert_history(alert_id: str):
+async def get_alert_history(alert_id: str):
     """Get status change history for a specific alert.
 
     Shows the full lifecycle: when it was triggered, acknowledged,
@@ -265,4 +283,5 @@ def get_alert_history(alert_id: str):
     Args:
         alert_id: Alert UUID (from list_alerts)
     """
-    return _get_client().alerts.history(alert_id)
+    client = _get_client()
+    return await asyncio.to_thread(client.alerts.history, alert_id)

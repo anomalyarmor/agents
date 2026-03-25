@@ -1,16 +1,48 @@
-"""Tests for _decorators module: sdk_tool, ToolError, _attr."""
+"""Tests for _decorators module: sdk_tool, _serialize, _attr."""
 
+import asyncio
 from unittest.mock import Mock
 
 import pytest
+from fastmcp.exceptions import ToolError
 
-from armor_mcp._decorators import ToolError, _attr, sdk_tool
+from armor_mcp._decorators import _attr, _serialize, sdk_tool
+
+
+class TestSerialize:
+    """Tests for the _serialize standalone function."""
+
+    def test_model_dump(self):
+        mock_model = Mock()
+        mock_model.model_dump.return_value = {"key": "value"}
+        assert _serialize(mock_model) == {"key": "value"}
+
+    def test_list_of_models(self):
+        mock1 = Mock()
+        mock1.model_dump.return_value = {"id": 1}
+        mock2 = Mock()
+        mock2.model_dump.return_value = {"id": 2}
+        assert _serialize([mock1, mock2]) == [{"id": 1}, {"id": 2}]
+
+    def test_dict_passthrough(self):
+        assert _serialize({"already": "dict"}) == {"already": "dict"}
+
+    def test_plain_value(self):
+        assert _serialize("plain string") == {"result": "plain string"}
+
+    def test_none(self):
+        assert _serialize(None) == {"result": None}
+
+    def test_mixed_list(self):
+        mock_model = Mock()
+        mock_model.model_dump.return_value = {"id": 1}
+        assert _serialize([mock_model, {"id": 2}]) == [{"id": 1}, {"id": 2}]
 
 
 class TestSdkTool:
     """Tests for the sdk_tool decorator."""
 
-    def test_handles_model_dump(self):
+    def test_serializes_model(self):
         mock_model = Mock()
         mock_model.model_dump.return_value = {"key": "value"}
 
@@ -22,7 +54,7 @@ class TestSdkTool:
         assert result == {"key": "value"}
         mock_model.model_dump.assert_called_once()
 
-    def test_handles_list_of_models(self):
+    def test_serializes_list(self):
         mock1 = Mock()
         mock1.model_dump.return_value = {"id": 1}
         mock2 = Mock()
@@ -32,62 +64,44 @@ class TestSdkTool:
         def func():
             return [mock1, mock2]
 
-        result = func()
-        assert result == [{"id": 1}, {"id": 2}]
+        assert func() == [{"id": 1}, {"id": 2}]
 
-    def test_handles_dict_passthrough(self):
+    def test_dict_passthrough(self):
         @sdk_tool
         def func():
             return {"already": "dict"}
 
         assert func() == {"already": "dict"}
 
-    def test_handles_plain_value(self):
+    def test_plain_value(self):
         @sdk_tool
         def func():
             return "plain string"
 
         assert func() == {"result": "plain string"}
 
-    def test_handles_none(self):
+    def test_none(self):
         @sdk_tool
         def func():
             return None
 
         assert func() == {"result": None}
 
-    def test_handles_generic_exception(self):
+    def test_raises_tool_error_for_generic_exception(self):
         @sdk_tool
         def func():
             raise ValueError("test error")
 
-        result = func()
-        assert result["error"] == "ValueError"
-        assert "test error" in result["message"]
+        with pytest.raises(ToolError, match="test error"):
+            func()
 
-    def test_handles_tool_error(self):
+    def test_passes_through_tool_error(self):
         @sdk_tool
         def func():
-            raise ToolError(
-                "Connect Slack first.",
-                error_type="NoSlackConnection",
-                oauth_url="https://example.com/oauth",
-            )
+            raise ToolError("already correct")
 
-        result = func()
-        assert result["error"] == "NoSlackConnection"
-        assert "Connect Slack first." in result["message"]
-        assert result["oauth_url"] == "https://example.com/oauth"
-
-    def test_tool_error_without_details(self):
-        @sdk_tool
-        def func():
-            raise ToolError("Something failed")
-
-        result = func()
-        assert result["error"] == "ToolError"
-        assert result["message"] == "Something failed"
-        assert len(result) == 2  # no extra keys
+        with pytest.raises(ToolError, match="already correct"):
+            func()
 
     def test_reraises_keyboard_interrupt(self):
         @sdk_tool
@@ -114,8 +128,7 @@ class TestSdkTool:
         assert my_tool.__name__ == "my_tool"
         assert my_tool.__doc__ == "My docstring."
 
-    def test_handles_mixed_list(self):
-        """Lists with both models and plain dicts."""
+    def test_mixed_list(self):
         mock_model = Mock()
         mock_model.model_dump.return_value = {"id": 1}
 
@@ -123,26 +136,47 @@ class TestSdkTool:
         def func():
             return [mock_model, {"id": 2}]
 
-        result = func()
-        assert result == [{"id": 1}, {"id": 2}]
+        assert func() == [{"id": 1}, {"id": 2}]
 
 
-class TestToolError:
-    """Tests for the ToolError exception."""
+class TestSdkToolAsync:
+    """Tests for sdk_tool with async functions."""
 
-    def test_basic_creation(self):
-        err = ToolError("message")
-        assert str(err) == "message"
-        assert err.error_type == "ToolError"
-        assert err.details == {}
+    def test_serializes_model(self):
+        mock_model = Mock()
+        mock_model.model_dump.return_value = {"key": "value"}
 
-    def test_custom_type_and_details(self):
-        err = ToolError("msg", error_type="NotFound", key="value", count=3)
-        assert err.error_type == "NotFound"
-        assert err.details == {"key": "value", "count": 3}
+        @sdk_tool
+        async def func():
+            return mock_model
 
-    def test_is_exception(self):
-        assert issubclass(ToolError, Exception)
+        result = asyncio.run(func())
+        assert result == {"key": "value"}
+
+    def test_raises_tool_error_for_generic_exception(self):
+        @sdk_tool
+        async def func():
+            raise ValueError("async error")
+
+        with pytest.raises(ToolError, match="async error"):
+            asyncio.run(func())
+
+    def test_passes_through_tool_error(self):
+        @sdk_tool
+        async def func():
+            raise ToolError("async tool error")
+
+        with pytest.raises(ToolError, match="async tool error"):
+            asyncio.run(func())
+
+    def test_preserves_function_name(self):
+        @sdk_tool
+        async def my_async_tool():
+            """Async docstring."""
+            return {}
+
+        assert my_async_tool.__name__ == "my_async_tool"
+        assert my_async_tool.__doc__ == "Async docstring."
 
 
 class TestAttr:
@@ -170,7 +204,6 @@ class TestAttr:
         assert _attr({"get": "my_value"}, "get") == "my_value"
 
     def test_non_dict_uses_attr(self):
-        """Non-dict objects use attribute access."""
         mock = Mock()
         mock.name = "from_attr"
         assert _attr(mock, "name") == "from_attr"

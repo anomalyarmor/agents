@@ -4,8 +4,12 @@ One representative tool per domain to verify the sdk_tool + _get_client
 pipeline works end-to-end without a real SDK connection.
 """
 
+import asyncio
 from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
+
+import pytest
+from fastmcp.exceptions import ToolError
 
 
 _TOOL_MODULES = [
@@ -54,7 +58,7 @@ class TestHealthTools:
         from armor_mcp.tools.health import health_summary
 
         with _patch_client(client):
-            result = health_summary()
+            result = asyncio.run(health_summary())
 
         assert result == {"overall_status": "healthy"}
         client.health.summary.assert_called_once()
@@ -68,7 +72,7 @@ class TestHealthTools:
         from armor_mcp.tools.health import get_todays_briefing
 
         with _patch_client(client):
-            result = get_todays_briefing()
+            result = asyncio.run(get_todays_briefing())
 
         assert result == {"alerts_fired": 3, "stale_tables": 1}
         client.briefings.today.assert_called_once()
@@ -85,7 +89,7 @@ class TestFreshnessTools:
         from armor_mcp.tools.freshness import check_freshness
 
         with _patch_client(client):
-            result = check_freshness(asset_id="asset-1")
+            result = asyncio.run(check_freshness(asset_id="asset-1"))
 
         assert result == {"tables": []}
         client.freshness.check.assert_called_once_with("asset-1")
@@ -102,7 +106,7 @@ class TestSchemaTools:
         from armor_mcp.tools.schema import get_schema_summary
 
         with _patch_client(client):
-            result = get_schema_summary()
+            result = asyncio.run(get_schema_summary())
 
         assert result == {"total_changes": 5}
 
@@ -118,9 +122,9 @@ class TestQualityTools:
         from armor_mcp.tools.quality import create_metric
 
         with _patch_client(client):
-            result = create_metric(
+            result = asyncio.run(create_metric(
                 asset_id="a1", table_path="public.orders", metric_type="row_count"
-            )
+            ))
 
         assert result == {"id": "m1", "metric_type": "row_count"}
         client.metrics.create.assert_called_once_with(
@@ -142,7 +146,7 @@ class TestAlertTools:
         from armor_mcp.tools.alerts import update_alert
 
         with _patch_client(client):
-            result = update_alert(alert_id="a1", status="acknowledged", notes="on it")
+            result = asyncio.run(update_alert(alert_id="a1", status="acknowledged", notes="on it"))
 
         assert result == {"id": "a1", "status": "acknowledged"}
         client.alerts.acknowledge.assert_called_once_with("a1", notes="on it")
@@ -156,13 +160,13 @@ class TestAlertTools:
         from armor_mcp.tools.alerts import update_alert
 
         with _patch_client(client):
-            result = update_alert(
+            result = asyncio.run(update_alert(
                 alert_id="a1",
                 status="resolved",
                 notes="fixed",
                 action_category="reran_job",
                 root_cause_category="pipeline_failure",
-            )
+            ))
 
         assert result["status"] == "resolved"
         client.alerts.resolve.assert_called_once_with(
@@ -181,7 +185,7 @@ class TestAlertTools:
         from armor_mcp.tools.alerts import update_alert
 
         with _patch_client(client):
-            result = update_alert(alert_id="a1", status="snoozed", duration_hours=48)
+            result = asyncio.run(update_alert(alert_id="a1", status="snoozed", duration_hours=48))
 
         assert result["status"] == "snoozed"
         client.alerts.snooze.assert_called_once_with(
@@ -200,10 +204,10 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = setup_destination(
+            result = asyncio.run(setup_destination(
                 destination_type="webhook",
                 webhook_url="https://example.com/hook",
-            )
+            ))
 
         assert result == {"id": "d1", "type": "webhook"}
         client.destinations.create.assert_called_once_with(
@@ -221,11 +225,11 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = setup_destination(
+            result = asyncio.run(setup_destination(
                 destination_type="email",
                 email="ops@example.com",
                 name="Ops Team",
-            )
+            ))
 
         assert result == {"id": "d2", "type": "email"}
         client.destinations.create.assert_called_once_with(
@@ -235,7 +239,7 @@ class TestDestinationTools:
         )
 
     def test_setup_slack_no_workspace(self):
-        """Slack destination returns ToolError with oauth_url when no workspace connected."""
+        """Slack destination returns action_required with oauth_url when no workspace connected."""
         client = _mock_client()
         client.integrations.list_slack_connections.return_value = []
         client.integrations.get_slack_oauth_url.side_effect = AttributeError
@@ -243,16 +247,16 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = setup_destination(
+            result = asyncio.run(setup_destination(
                 destination_type="slack",
                 channel_name="alerts",
-            )
+            ))
 
-        assert result["error"] == "NoSlackConnection"
+        assert result["status"] == "action_required"
         assert "oauth_url" in result
 
     def test_setup_slack_channel_not_found(self):
-        """Slack destination returns ToolError with suggestions when channel not found."""
+        """Slack destination raises ToolError with suggestions when channel not found."""
         client = _mock_client()
 
         mock_conn = MagicMock()
@@ -268,14 +272,11 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = setup_destination(
-                destination_type="slack",
-                channel_name="alerts",
-            )
-
-        assert result["error"] == "NotFoundError"
-        assert "alerts" in result["message"]
-        assert "alerts-prod" in result["message"]  # fuzzy match suggestion
+            with pytest.raises(ToolError, match="alerts.*alerts-prod"):
+                asyncio.run(setup_destination(
+                    destination_type="slack",
+                    channel_name="alerts",
+                ))
 
     def test_setup_slack_success(self):
         """Slack destination auto-discovers connection and finds channel."""
@@ -297,10 +298,10 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = setup_destination(
+            result = asyncio.run(setup_destination(
                 destination_type="slack",
                 channel_name="alerts",
-            )
+            ))
 
         assert result == {"id": "d3", "type": "slack"}
         client.integrations.create_slack_destination.assert_called_once_with(
@@ -322,7 +323,7 @@ class TestIntelligenceTools:
         from armor_mcp.tools.intelligence import ask_question
 
         with _patch_client(client):
-            result = ask_question(question="What is the meaning?")
+            result = asyncio.run(ask_question(question="What is the meaning?"))
 
         assert result == {"answer": "42"}
 
@@ -338,7 +339,7 @@ class TestCatalogTools:
         from armor_mcp.tools.catalog import get_lineage
 
         with _patch_client(client):
-            result = get_lineage(asset_id="a1", depth=3, direction="upstream")
+            result = asyncio.run(get_lineage(asset_id="a1", depth=3, direction="upstream"))
 
         assert result == {"nodes": [], "edges": []}
         client.lineage.get.assert_called_once_with(
@@ -356,12 +357,12 @@ class TestCatalogTools:
         from armor_mcp.tools.catalog import apply_tags
 
         with _patch_client(client):
-            result = apply_tags(
+            result = asyncio.run(apply_tags(
                 asset_id="a1",
                 object_path="public.users.email",
                 tags=["pii", "sensitive"],
                 object_type="column",
-            )
+            ))
 
         assert result == {"applied": ["pii", "sensitive"]}
 
@@ -377,7 +378,7 @@ class TestAssetTools:
         from armor_mcp.tools.assets import list_assets
 
         with _patch_client(client):
-            result = list_assets(asset_type="postgresql", limit=10)
+            result = asyncio.run(list_assets(asset_type="postgresql", limit=10))
 
         assert result == [{"id": "a1", "source_type": "postgresql"}]
         client.assets.list.assert_called_once_with(asset_type="postgresql", limit=10)
@@ -391,11 +392,11 @@ class TestAssetTools:
         from armor_mcp.tools.assets import create_asset
 
         with _patch_client(client):
-            result = create_asset(
+            result = asyncio.run(create_asset(
                 name="Prod DB",
                 source_type="postgresql",
                 connection_config={"host": "localhost"},
-            )
+            ))
 
         assert result == {"id": "a1", "name": "Prod DB"}
         client.assets.create.assert_called_once_with(
@@ -414,7 +415,7 @@ class TestAssetTools:
         from armor_mcp.tools.assets import manage_asset
 
         with _patch_client(client):
-            result = manage_asset(action="get", asset_id="a1")
+            result = asyncio.run(manage_asset(action="get", asset_id="a1"))
 
         assert result == {"id": "a1", "name": "Prod DB"}
         client.assets.get.assert_called_once_with("a1")
@@ -428,16 +429,15 @@ class TestAssetTools:
         from armor_mcp.tools.assets import manage_asset
 
         with _patch_client(client):
-            result = manage_asset(action="test", asset_id="a1")
+            result = asyncio.run(manage_asset(action="test", asset_id="a1"))
 
         assert result == {"success": True}
 
     def test_manage_asset_invalid_action(self):
         from armor_mcp.tools.assets import manage_asset
 
-        result = manage_asset(action="delete", asset_id="a1")
-        assert "error" in result
-        assert "Invalid action" in result["message"]
+        with pytest.raises(ToolError, match="Invalid action"):
+            asyncio.run(manage_asset(action="delete", asset_id="a1"))
 
 
 class TestReferentialTools:
@@ -451,13 +451,13 @@ class TestReferentialTools:
         from armor_mcp.tools.referential import create_referential_check
 
         with _patch_client(client):
-            result = create_referential_check(
+            result = asyncio.run(create_referential_check(
                 asset_id="a1",
                 source_table="public.orders",
                 source_column="customer_id",
                 target_table="public.customers",
                 target_column="id",
-            )
+            ))
 
         assert result == {"id": "rc1"}
         client.referential.create.assert_called_once()
@@ -471,7 +471,7 @@ class TestReferentialTools:
         from armor_mcp.tools.referential import manage_referential
 
         with _patch_client(client):
-            result = manage_referential(action="summary", asset_id="a1")
+            result = asyncio.run(manage_referential(action="summary", asset_id="a1"))
 
         assert result == {"total_checks": 5}
         client.referential.summary.assert_called_once_with("a1")
@@ -485,24 +485,24 @@ class TestReferentialTools:
         from armor_mcp.tools.referential import manage_referential
 
         with _patch_client(client):
-            result = manage_referential(action="execute", asset_id="a1", check_id="rc1")
+            result = asyncio.run(manage_referential(action="execute", asset_id="a1", check_id="rc1"))
 
         assert result == {"status": "PASS"}
         client.referential.execute.assert_called_once_with("a1", "rc1")
 
     def test_manage_referential_requires_check_id(self):
+        client = _mock_client()
         from armor_mcp.tools.referential import manage_referential
 
-        result = manage_referential(action="get", asset_id="a1")
-        assert "error" in result
-        assert "check_id" in result["message"]
+        with _patch_client(client):
+            with pytest.raises(ToolError, match="check_id"):
+                asyncio.run(manage_referential(action="get", asset_id="a1"))
 
     def test_manage_referential_invalid_action(self):
         from armor_mcp.tools.referential import manage_referential
 
-        result = manage_referential(action="nope", asset_id="a1")
-        assert "error" in result
-        assert "Invalid action" in result["message"]
+        with pytest.raises(ToolError, match="Invalid action"):
+            asyncio.run(manage_referential(action="nope", asset_id="a1"))
 
 
 class TestRecommendationTools:
@@ -516,7 +516,7 @@ class TestRecommendationTools:
         from armor_mcp.tools.recommendations import recommend
 
         with _patch_client(client):
-            result = recommend(recommendation_type="freshness", asset_id="a1")
+            result = asyncio.run(recommend(recommendation_type="freshness", asset_id="a1"))
 
         assert result == {"recommendations": []}
         client.recommendations.freshness.assert_called_once_with(
@@ -535,12 +535,12 @@ class TestRecommendationTools:
         from armor_mcp.tools.recommendations import recommend
 
         with _patch_client(client):
-            result = recommend(
+            result = asyncio.run(recommend(
                 recommendation_type="thresholds",
                 asset_id="a1",
                 days=14,
                 limit=5,
-            )
+            ))
 
         assert result == {"recommendations": []}
         client.recommendations.thresholds.assert_called_once_with(
@@ -552,9 +552,8 @@ class TestRecommendationTools:
     def test_recommend_invalid_type(self):
         from armor_mcp.tools.recommendations import recommend
 
-        result = recommend(recommendation_type="magic", asset_id="a1")
-        assert "error" in result
-        assert "Invalid type" in result["message"]
+        with pytest.raises(ToolError, match="Invalid type"):
+            asyncio.run(recommend(recommendation_type="magic", asset_id="a1"))
 
 
 class TestCoverageTools:
@@ -568,7 +567,7 @@ class TestCoverageTools:
         from armor_mcp.tools.coverage import get_coverage
 
         with _patch_client(client):
-            result = get_coverage(scope="company")
+            result = asyncio.run(get_coverage(scope="company"))
 
         assert result == {"company_score": 72}
         client.coverage.company.assert_called_once()
@@ -582,17 +581,18 @@ class TestCoverageTools:
         from armor_mcp.tools.coverage import get_coverage
 
         with _patch_client(client):
-            result = get_coverage(scope="asset", asset_id="a1")
+            result = asyncio.run(get_coverage(scope="asset", asset_id="a1"))
 
         assert result == {"score": 85, "tier": "intelligent"}
         client.coverage.get.assert_called_once_with("a1")
 
     def test_get_coverage_asset_requires_id(self):
+        client = _mock_client()
         from armor_mcp.tools.coverage import get_coverage
 
-        result = get_coverage(scope="asset")
-        assert "error" in result
-        assert "asset_id" in result["message"]
+        with _patch_client(client):
+            with pytest.raises(ToolError, match="asset_id"):
+                asyncio.run(get_coverage(scope="asset"))
 
     def test_manage_coverage_gaps(self):
         client = _mock_client()
@@ -605,7 +605,7 @@ class TestCoverageTools:
         from armor_mcp.tools.coverage import manage_coverage
 
         with _patch_client(client):
-            result = manage_coverage(action="gaps", asset_id="a1", limit=10)
+            result = asyncio.run(manage_coverage(action="gaps", asset_id="a1", limit=10))
 
         assert result["total_tables"] == 50
         client.coverage.gaps.assert_called_once_with("a1", limit=10)
@@ -619,11 +619,11 @@ class TestCoverageTools:
         from armor_mcp.tools.coverage import manage_coverage
 
         with _patch_client(client):
-            result = manage_coverage(
+            result = asyncio.run(manage_coverage(
                 action="apply",
                 asset_id="a1",
                 types=["freshness"],
-            )
+            ))
 
         assert result["applied_count"] == 3
         client.coverage.apply.assert_called_once_with(
@@ -644,7 +644,7 @@ class TestAPIKeyTools:
         from armor_mcp.tools.api_keys import get_api_key_info
 
         with _patch_client(client):
-            result = get_api_key_info(view="list")
+            result = asyncio.run(get_api_key_info(view="list"))
 
         assert result == [{"id": "k1", "name": "Production"}]
         client.api_keys.list.assert_called_once()
@@ -658,17 +658,18 @@ class TestAPIKeyTools:
         from armor_mcp.tools.api_keys import get_api_key_info
 
         with _patch_client(client):
-            result = get_api_key_info(view="detail", key_id="k1")
+            result = asyncio.run(get_api_key_info(view="detail", key_id="k1"))
 
         assert result == {"id": "k1", "name": "Production"}
         client.api_keys.get.assert_called_once_with("k1")
 
     def test_get_api_key_info_detail_requires_id(self):
+        client = _mock_client()
         from armor_mcp.tools.api_keys import get_api_key_info
 
-        result = get_api_key_info(view="detail")
-        assert "error" in result
-        assert "key_id" in result["message"]
+        with _patch_client(client):
+            with pytest.raises(ToolError, match="key_id"):
+                asyncio.run(get_api_key_info(view="detail"))
 
     def test_get_api_key_info_usage(self):
         client = _mock_client()
@@ -677,13 +678,12 @@ class TestAPIKeyTools:
         from armor_mcp.tools.api_keys import get_api_key_info
 
         with _patch_client(client):
-            result = get_api_key_info(view="usage")
+            result = asyncio.run(get_api_key_info(view="usage"))
 
         assert result == {"total_requests": 1000}
 
     def test_get_api_key_info_invalid_view(self):
         from armor_mcp.tools.api_keys import get_api_key_info
 
-        result = get_api_key_info(view="secrets")
-        assert "error" in result
-        assert "Invalid view" in result["message"]
+        with pytest.raises(ToolError, match="Invalid view"):
+            asyncio.run(get_api_key_info(view="secrets"))
