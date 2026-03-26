@@ -11,7 +11,7 @@ from armor_mcp._app import mcp
 
 
 class TestToolRegistration:
-    """All 52 consolidated tools must be registered."""
+    """All 53 consolidated tools must be registered."""
 
     def test_all_tools_registered(self):
         # Import server to trigger tool registration
@@ -74,6 +74,7 @@ class TestToolRegistration:
             # Lineage & Jobs
             "get_lineage",
             "job_status",
+            "cancel_job",
             # Tags
             "create_tag",
             "list_tags",
@@ -90,7 +91,7 @@ class TestToolRegistration:
             "get_api_key_info",
         ]
 
-        assert len(expected_tools) == 52
+        assert len(expected_tools) == 53
 
         registered = set(tools.keys())
         missing = set(expected_tools) - registered

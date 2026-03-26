@@ -68,6 +68,8 @@ async def job_status(job_id: str):
     user_status = raw_status
     if raw_status in ("pending", "claimed", "running"):
         user_status = "in_progress"
+    elif raw_status in ("timed_out", "error"):
+        user_status = "failed"
 
     serialized = (
         result.model_dump()
