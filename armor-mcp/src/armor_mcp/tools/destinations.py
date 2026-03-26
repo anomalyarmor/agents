@@ -5,13 +5,11 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from mcp.types import ToolAnnotations
-
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
-from fastmcp.exceptions import ToolError
-
 from armor_mcp._decorators import _attr, sdk_tool
+from fastmcp.exceptions import ToolError
+from mcp.types import ToolAnnotations
 
 
 @mcp.tool(
@@ -21,16 +19,20 @@ from armor_mcp._decorators import _attr, sdk_tool
 @sdk_tool
 async def list_destinations(
     destination_type: str | None = None,
-    active_only: bool = True,
+    active_only: bool = False,
 ):
     """List configured alert destinations (Slack, email, webhook).
 
+    Returns ALL destinations by default, including disabled ones.
+    Check the is_active field to see if a destination is enabled or disabled.
+    Prefer re-enabling existing destinations over creating new ones.
+
     Returns destination IDs needed for create_alert_rule. Use setup_destination
-    to create new destinations.
+    to create new destinations, or manage_destination to re-enable an inactive one.
 
     Args:
         destination_type: Filter by type: "slack", "webhook", "email"
-        active_only: Only return active destinations (default True)
+        active_only: Only return active destinations (default False, shows all)
     """
     client = _get_client()
     return await asyncio.to_thread(
@@ -40,7 +42,9 @@ async def list_destinations(
     )
 
 
-async def _create_slack_destination(client: Any, channel_name: str, name: str | None) -> Any:
+async def _create_slack_destination(
+    client: Any, channel_name: str, name: str | None
+) -> Any:
     """Handle Slack OAuth discovery, channel lookup, and destination creation.
 
     Raises:
@@ -48,7 +52,9 @@ async def _create_slack_destination(client: Any, channel_name: str, name: str | 
     """
     # Discover Slack OAuth connection
     try:
-        connections = await asyncio.to_thread(client.integrations.list_slack_connections)
+        connections = await asyncio.to_thread(
+            client.integrations.list_slack_connections
+        )
     except AttributeError:
         # SDK version doesn't support this method
         connections = []
