@@ -2,16 +2,18 @@
 
 import asyncio
 
-from mcp.types import ToolAnnotations
-
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
-from armor_mcp._decorators import sdk_tool
+from armor_mcp._decorators import _attr, sdk_tool
+from mcp.types import ToolAnnotations
 
 # -- Lineage -----------------------------------------------------------------
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"lineage", "read"})
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"lineage", "read"},
+)
 @sdk_tool
 async def get_lineage(
     asset_id: str,
@@ -43,16 +45,52 @@ async def get_lineage(
 # -- Jobs --------------------------------------------------------------------
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"catalog", "read"})
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"catalog", "read"},
+)
 @sdk_tool
 async def job_status(job_id: str):
     """Check status of an async job (discovery, intelligence generation, etc.).
+
+    Returns a user_status field with simplified status: "in_progress", "completed",
+    "failed", or "cancelled". Internal states like "pending" and "claimed" are
+    mapped to "in_progress" so consumers don't need to handle them.
 
     Args:
         job_id: Job UUID (from trigger_asset_discovery, generate_intelligence, etc.)
     """
     client = _get_client()
-    return await asyncio.to_thread(client.jobs.get, job_id)
+    result = await asyncio.to_thread(client.jobs.get, job_id)
+
+    # Coalesce internal states into user-friendly labels
+    raw_status = _attr(result, "status", "unknown")
+    user_status = raw_status
+    if raw_status in ("pending", "claimed", "running"):
+        user_status = "in_progress"
+
+    serialized = (
+        result.model_dump()
+        if hasattr(result, "model_dump")
+        else (result if isinstance(result, dict) else {"raw": result})
+    )
+    serialized["user_status"] = user_status
+    return serialized
+
+
+@mcp.tool(annotations=ToolAnnotations(destructiveHint=True), tags={"catalog", "write"})
+@sdk_tool
+async def cancel_job(job_id: str):
+    """Cancel a running or pending background job.
+
+    Use this when a long-running operation (intelligence generation, asset discovery)
+    needs to be stopped.
+
+    Args:
+        job_id: Job UUID (from trigger_asset_discovery, generate_intelligence, etc.)
+    """
+    client = _get_client()
+    return await asyncio.to_thread(client.jobs.cancel, job_id)
 
 
 # -- Tags --------------------------------------------------------------------
@@ -83,7 +121,10 @@ async def create_tag(
     )
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"catalog", "read"})
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"catalog", "read"},
+)
 @sdk_tool
 async def list_tags(asset_id: str, object_path: str | None = None):
     """List tags applied to database objects within an asset.
@@ -95,7 +136,9 @@ async def list_tags(asset_id: str, object_path: str | None = None):
         object_path: Filter to tags on a specific object (e.g., "public.users.email")
     """
     client = _get_client()
-    return await asyncio.to_thread(client.tags.list, asset_id=asset_id, object_path=object_path)
+    return await asyncio.to_thread(
+        client.tags.list, asset_id=asset_id, object_path=object_path
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"catalog", "write"})
