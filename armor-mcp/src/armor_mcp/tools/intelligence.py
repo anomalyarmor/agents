@@ -2,14 +2,13 @@
 
 import asyncio
 
+from armor_mcp._app import mcp
+from armor_mcp._client import _get_client
+from armor_mcp._decorators import _attr, sdk_tool
 from fastmcp import Context
 from fastmcp.dependencies import CurrentContext
 from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
-
-from armor_mcp._app import mcp
-from armor_mcp._client import _get_client
-from armor_mcp._decorators import _attr, sdk_tool
 
 
 @mcp.tool(
@@ -66,7 +65,7 @@ async def generate_intelligence(
     client = _get_client()
     job = await asyncio.to_thread(
         client.intelligence.generate,
-        asset_id=asset_id,
+        asset=asset_id,
         force_refresh=force_refresh,
     )
 
@@ -87,5 +86,7 @@ async def generate_intelligence(
         await asyncio.sleep(3)
 
     if status_value != "completed":
-        raise ToolError(f"Intelligence generation {status_value}: {_attr(status, 'error', 'unknown error')}")
+        raise ToolError(
+            f"Intelligence generation {status_value}: {_attr(status, 'error', 'unknown error')}"
+        )
     return status
