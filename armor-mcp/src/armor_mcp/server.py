@@ -52,12 +52,22 @@ async def health_check(request: Any) -> Any:
 # host alone can discover transport, auth, and capabilities.
 
 
+def _authorization_servers(clerk_domain: str) -> list[str]:
+    """Single source of truth for the `authorization_servers` list.
+
+    Trailing slash matches FastMCP's on-wire representation at
+    /.well-known/oauth-protected-resource/mcp, so the bare RFC 9728 mirror
+    and the FastMCP-managed /mcp variant return byte-identical payloads.
+    """
+    return [f"https://{clerk_domain}/"]
+
+
 def _oauth_protected_resource_metadata() -> dict[str, Any]:
     base_url = os.environ.get("MCP_BASE_URL", "https://mcp.anomalyarmor.ai")
     clerk_domain = os.environ.get("CLERK_DOMAIN", "clerk.anomalyarmor.ai")
     return {
         "resource": f"{base_url}/mcp",
-        "authorization_servers": [f"https://{clerk_domain}/"],
+        "authorization_servers": _authorization_servers(clerk_domain),
         "scopes_supported": [],
         "bearer_methods_supported": ["header"],
         "resource_name": "AnomalyArmor MCP Server",
@@ -171,7 +181,7 @@ def _create_auth_provider() -> Any:
 
     return RemoteAuthProvider(
         token_verifier=token_verifier,
-        authorization_servers=[f"https://{clerk_domain}"],
+        authorization_servers=_authorization_servers(clerk_domain),
         base_url=base_url,
         resource_name="AnomalyArmor MCP Server",
     )
