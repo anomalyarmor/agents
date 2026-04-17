@@ -20,13 +20,12 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from armor_mcp._app import mcp
+import armor_mcp.prompts  # noqa: F401
+import armor_mcp.resources  # noqa: F401
 
 # Import tools, resources, and prompts to trigger registration.
 import armor_mcp.tools  # noqa: F401
-import armor_mcp.resources  # noqa: F401
-import armor_mcp.prompts  # noqa: F401
-
+from armor_mcp._app import mcp
 
 # ============================================================================
 # HTTP Health Check
@@ -39,6 +38,113 @@ async def health_check(request: Any) -> Any:
     from starlette.responses import JSONResponse
 
     return JSONResponse({"status": "ok", "service": "armor-mcp"})
+
+
+# ============================================================================
+# Agent Discovery Endpoints
+# ============================================================================
+#
+# FastMCP's RemoteAuthProvider publishes oauth-protected-resource metadata at
+# /.well-known/oauth-protected-resource/mcp (keyed to the transport path).
+# RFC 9728 scanners look at the bare /.well-known/oauth-protected-resource
+# first, so we mirror the same content there. The server card is a Model
+# Context Protocol discovery document (SEP-1649) so clients pointed at the MCP
+# host alone can discover transport, auth, and capabilities.
+
+
+def _oauth_protected_resource_metadata() -> dict[str, Any]:
+    base_url = os.environ.get("MCP_BASE_URL", "https://mcp.anomalyarmor.ai")
+    clerk_domain = os.environ.get("CLERK_DOMAIN", "clerk.anomalyarmor.ai")
+    return {
+        "resource": f"{base_url}/mcp",
+        "authorization_servers": [f"https://{clerk_domain}/"],
+        "scopes_supported": [],
+        "bearer_methods_supported": ["header"],
+        "resource_name": "AnomalyArmor MCP Server",
+    }
+
+
+@mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
+async def oauth_protected_resource(request: Any) -> Any:
+    """RFC 9728 OAuth Protected Resource metadata at the canonical bare path."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse(_oauth_protected_resource_metadata())
+
+
+@mcp.custom_route("/.well-known/mcp/server-card.json", methods=["GET"])
+async def mcp_server_card(request: Any) -> Any:
+    """MCP Server Card (SEP-1649) describing this server to AI agents."""
+    from importlib.metadata import PackageNotFoundError
+    from importlib.metadata import version as pkg_version
+
+    from starlette.responses import JSONResponse
+
+    base_url = os.environ.get("MCP_BASE_URL", "https://mcp.anomalyarmor.ai")
+    try:
+        server_version = pkg_version("armor-mcp")
+    except PackageNotFoundError:
+        server_version = "unknown"
+
+    card = {
+        "$schema": "https://modelcontextprotocol.io/schemas/server-card/draft-1.json",
+        "serverInfo": {
+            "name": "AnomalyArmor",
+            "title": "AnomalyArmor MCP Server",
+            "version": server_version,
+            "description": (
+                "Data observability tools for AI assistants. Query alerts, monitor "
+                "freshness, inspect schema changes, and manage destinations via "
+                "natural language."
+            ),
+            "homepage": "https://www.anomalyarmor.ai",
+            "documentation": "https://docs.anomalyarmor.ai/integrations/mcp-server",
+            "vendor": {
+                "name": "AnomalyArmor",
+                "url": "https://www.anomalyarmor.ai",
+                "supportEmail": "support@anomalyarmor.ai",
+            },
+        },
+        "transports": [
+            {
+                "type": "streamable-http",
+                "url": f"{base_url}/mcp",
+                "preferred": True,
+            }
+        ],
+        "authentication": {
+            "type": "oauth2",
+            "oauthProtectedResource": f"{base_url}/.well-known/oauth-protected-resource/mcp",
+        },
+        "capabilities": {
+            "tools": {
+                "listChanged": True,
+                "categories": [
+                    "catalog",
+                    "destinations",
+                    "freshness",
+                    "alerts",
+                    "health",
+                    "recommendations",
+                    "intelligence",
+                ],
+            },
+            "resources": {"listChanged": True},
+            "prompts": {"listChanged": True},
+        },
+        "installation": {
+            "claudeCode": f"claude mcp add anomalyarmor --transport http {base_url}/mcp",
+            "cursor": {
+                "mcpServers": {"anomalyarmor": {"url": f"{base_url}/mcp"}},
+            },
+            "local": {
+                "command": "uvx",
+                "args": ["armor-mcp"],
+                "env": {"ARMOR_API_KEY": "aa_live_your_key_here"},
+            },
+        },
+    }
+    return JSONResponse(card)
 
 
 # ============================================================================
