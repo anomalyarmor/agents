@@ -56,8 +56,13 @@ Thumbs.db
 .env.local
 armor-mcp/uv.lock
 
-# Claude Code local config
-.claude/
+# Claude Code local config (user-specific state). Project-wide guidance
+# files (.claude/agent.md, sub-agents) are explicitly tracked below so
+# AI tooling and agent-readiness scanners can find them.
+.claude/*
+!.claude/agent.md
+!.claude/agents/
+!.claude/agents/**
 
 # Docs (task planning, not shipped)
 docs/

@@ -1,0 +1,61 @@
+---
+description: Guide for using the AnomalyArmor MCP server in Cursor
+globs: ["**/*"]
+alwaysApply: false
+---
+
+# AnomalyArmor MCP server
+
+This repo ships `armor-mcp`, the Model Context Protocol server for AnomalyArmor's data observability platform. When working in this repo, or any project that has the AnomalyArmor MCP server connected, follow these conventions.
+
+## Connecting
+
+Add the hosted server to your Cursor MCP config (`~/Library/Application Support/Cursor/mcp.json` on macOS):
+
+```json
+{
+  "mcpServers": {
+    "anomalyarmor": {
+      "url": "https://mcp.anomalyarmor.ai/mcp"
+    }
+  }
+}
+```
+
+The server uses OAuth 2.1 (Clerk). The first invocation opens a browser; subsequent calls reuse the cached token until it expires.
+
+For air-gapped or local development, install the package and pass an API key:
+
+```bash
+pip install armor-mcp
+ARMOR_API_KEY=aa_live_... armor-mcp
+```
+
+## Tool conventions
+
+- **Read-only** tools (`list_*`, `get_*`, `check_*`, `search_*`) can be called without confirmation.
+- **Mutating** tools (`create_*`, `update_*`, `enable_*`, `disable_*`, `delete_*`, `acknowledge_*`, `resolve_*`, `dismiss_*`, `snooze_*`) change state. Confirm with the user before invoking, especially in bulk.
+- **Expensive** tools (`generate_intelligence`, `trigger_asset_discovery`, `capture_metric`) cost money and time. Confirm and prefer the cheaper read-only equivalents when possible.
+
+Tool annotations (`readOnlyHint`, `destructiveHint`, `idempotentHint`) are present on every tool. Respect them.
+
+## Common workflows
+
+- **Triage**: start with `health_summary` -> `list_alerts` for an overview, then `get_lineage` to scope downstream impact before resolving.
+- **Onboarding a new schema**: `explore` to enumerate tables -> `setup_freshness` (bulk) -> `enable_schema_monitoring` (bulk) -> `create_metric` for ID/email columns.
+- **Investigation**: `check_freshness` -> `list_schema_changes` -> `get_lineage` to chain upstream/downstream.
+
+## Multi-tenancy
+
+The server is scoped to the authenticated user's company. Never assume access to other tenants' data. The `company_id` is derived from the token; you cannot override it via tool args.
+
+## When NOT to use these tools
+
+- Don't use `generate_intelligence` for trivial questions; it kicks off an LLM job. Prefer `ask_question` for synchronous Q&A.
+- Don't use `trigger_asset_discovery` repeatedly during a session; discovery runs are queued and expensive.
+- Don't use destructive tools (`delete_*`, `dismiss_*`) without explicit user confirmation describing exactly which entities will be affected.
+
+## More
+
+- Docs: https://docs.anomalyarmor.ai/integrations/cursor
+- Source: https://github.com/anomalyarmor/agents
