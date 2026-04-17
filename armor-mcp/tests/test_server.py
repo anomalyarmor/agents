@@ -5,9 +5,8 @@ import os
 from unittest.mock import MagicMock, patch
 
 import pytest
-from fastmcp.exceptions import ToolError
-
 from armor_mcp._app import mcp
+from fastmcp.exceptions import ToolError
 
 
 class TestToolRegistration:
@@ -172,6 +171,51 @@ class TestMain:
             host="0.0.0.0",
             port=8080,
             stateless_http=True,
+        )
+
+
+class TestAgentDiscoveryEndpoints:
+    """Well-known endpoints that advertise the MCP server to AI agents."""
+
+    def test_oauth_protected_resource_matches_fastmcp_variant(self):
+        import json
+
+        from armor_mcp.server import oauth_protected_resource
+
+        env = {
+            "MCP_BASE_URL": "https://mcp.anomalyarmor.ai",
+            "CLERK_DOMAIN": "clerk.anomalyarmor.ai",
+        }
+        with patch.dict(os.environ, env, clear=False):
+            response = asyncio.run(oauth_protected_resource(request=MagicMock()))
+
+        body = json.loads(response.body)
+        assert body == {
+            "resource": "https://mcp.anomalyarmor.ai/mcp",
+            "authorization_servers": ["https://clerk.anomalyarmor.ai/"],
+            "scopes_supported": [],
+            "bearer_methods_supported": ["header"],
+            "resource_name": "AnomalyArmor MCP Server",
+        }
+
+    def test_mcp_server_card_core_fields(self):
+        import json
+
+        from armor_mcp.server import mcp_server_card
+
+        with patch.dict(
+            os.environ, {"MCP_BASE_URL": "https://mcp.anomalyarmor.ai"}, clear=False
+        ):
+            response = asyncio.run(mcp_server_card(request=MagicMock()))
+
+        card = json.loads(response.body)
+        assert card["serverInfo"]["name"] == "AnomalyArmor"
+        assert card["transports"][0]["url"] == "https://mcp.anomalyarmor.ai/mcp"
+        assert card["transports"][0]["type"] == "streamable-http"
+        assert card["authentication"]["type"] == "oauth2"
+        assert (
+            card["authentication"]["oauthProtectedResource"]
+            == "https://mcp.anomalyarmor.ai/.well-known/oauth-protected-resource/mcp"
         )
 
 
