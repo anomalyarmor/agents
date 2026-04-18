@@ -218,6 +218,60 @@ class TestAgentDiscoveryEndpoints:
             == "https://mcp.anomalyarmor.ai/.well-known/oauth-protected-resource/mcp"
         )
 
+    def test_mcp_server_card_top_level_identity(self):
+        """RFC / scanner clients look for name/description/version at the root."""
+        import json
+
+        from armor_mcp.server import mcp_server_card
+
+        with patch.dict(
+            os.environ, {"MCP_BASE_URL": "https://mcp.anomalyarmor.ai"}, clear=False
+        ):
+            response = asyncio.run(mcp_server_card(request=MagicMock()))
+
+        card = json.loads(response.body)
+        assert card["name"] == "AnomalyArmor"
+        assert "Data observability" in card["description"]
+        assert isinstance(card["version"], str)
+        assert card["version"] == card["serverInfo"]["version"]
+        assert card["serverUrl"] == "https://mcp.anomalyarmor.ai/mcp"
+
+    def test_oauth_authorization_server_metadata(self):
+        """RFC 8414 metadata must advertise PKCE S256 and point at the Clerk issuer."""
+        import json
+
+        from armor_mcp.server import oauth_authorization_server
+
+        with patch.dict(
+            os.environ, {"CLERK_DOMAIN": "clerk.anomalyarmor.ai"}, clear=False
+        ):
+            response = asyncio.run(oauth_authorization_server(request=MagicMock()))
+
+        metadata = json.loads(response.body)
+        assert metadata["issuer"] == "https://clerk.anomalyarmor.ai"
+        assert (
+            metadata["authorization_endpoint"]
+            == "https://clerk.anomalyarmor.ai/oauth/authorize"
+        )
+        assert metadata["token_endpoint"] == "https://clerk.anomalyarmor.ai/oauth/token"
+        assert metadata["code_challenge_methods_supported"] == ["S256"]
+        assert "authorization_code" in metadata["grant_types_supported"]
+        assert "refresh_token" in metadata["grant_types_supported"]
+
+    def test_openid_configuration_matches_authorization_server(self):
+        """The OIDC alias returns the same payload as oauth-authorization-server."""
+        import json
+
+        from armor_mcp.server import oauth_authorization_server, openid_configuration
+
+        with patch.dict(
+            os.environ, {"CLERK_DOMAIN": "clerk.anomalyarmor.ai"}, clear=False
+        ):
+            auth_resp = asyncio.run(oauth_authorization_server(request=MagicMock()))
+            oidc_resp = asyncio.run(openid_configuration(request=MagicMock()))
+
+        assert json.loads(auth_resp.body) == json.loads(oidc_resp.body)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

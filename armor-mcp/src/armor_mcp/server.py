@@ -74,12 +74,72 @@ def _oauth_protected_resource_metadata() -> dict[str, Any]:
     }
 
 
+def _oauth_authorization_server_metadata() -> dict[str, Any]:
+    """RFC 8414 authorization-server metadata for the Clerk issuer that guards this MCP server.
+
+    Served inline (not a redirect) so RFC 8414 scanners and MCP clients get a
+    deterministic JSON payload at the bare well-known path. Mirrors Clerk's
+    own discovery document at clerk.<domain>/.well-known/openid-configuration;
+    PKCE S256 is advertised explicitly because the scan checks for it here
+    rather than following the issuer link.
+    """
+    clerk_domain = os.environ.get("CLERK_DOMAIN", "clerk.anomalyarmor.ai")
+    issuer = f"https://{clerk_domain}"
+    return {
+        "issuer": issuer,
+        "authorization_endpoint": f"{issuer}/oauth/authorize",
+        "token_endpoint": f"{issuer}/oauth/token",
+        "userinfo_endpoint": f"{issuer}/oauth/userinfo",
+        "jwks_uri": f"{issuer}/.well-known/jwks.json",
+        "registration_endpoint": f"{issuer}/oauth/register",
+        "response_types_supported": ["code"],
+        "grant_types_supported": ["authorization_code", "refresh_token"],
+        "code_challenge_methods_supported": ["S256"],
+        "token_endpoint_auth_methods_supported": [
+            "client_secret_basic",
+            "client_secret_post",
+            "none",
+        ],
+        "scopes_supported": ["openid", "profile", "email", "offline_access"],
+        "subject_types_supported": ["public"],
+        "id_token_signing_alg_values_supported": ["RS256"],
+    }
+
+
 @mcp.custom_route("/.well-known/oauth-protected-resource", methods=["GET"])
 async def oauth_protected_resource(request: Any) -> Any:
     """RFC 9728 OAuth Protected Resource metadata at the canonical bare path."""
     from starlette.responses import JSONResponse
 
     return JSONResponse(_oauth_protected_resource_metadata())
+
+
+@mcp.custom_route("/.well-known/oauth-authorization-server", methods=["GET"])
+async def oauth_authorization_server(request: Any) -> Any:
+    """RFC 8414 authorization-server metadata mirroring the Clerk issuer."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse(
+        _oauth_authorization_server_metadata(),
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
+@mcp.custom_route("/.well-known/openid-configuration", methods=["GET"])
+async def openid_configuration(request: Any) -> Any:
+    """OIDC discovery alias returning the same payload as oauth-authorization-server."""
+    from starlette.responses import JSONResponse
+
+    return JSONResponse(
+        _oauth_authorization_server_metadata(),
+        headers={
+            "Cache-Control": "public, max-age=3600",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
 
 
 @mcp.custom_route("/.well-known/mcp/server-card.json", methods=["GET"])
@@ -96,17 +156,22 @@ async def mcp_server_card(request: Any) -> Any:
     except PackageNotFoundError:
         server_version = "unknown"
 
+    description = (
+        "Data observability tools for AI assistants. Query alerts, monitor "
+        "freshness, inspect schema changes, and manage destinations via "
+        "natural language."
+    )
     card = {
         "$schema": "https://modelcontextprotocol.io/schemas/server-card/draft-1.json",
+        "name": "AnomalyArmor",
+        "description": description,
+        "version": server_version,
+        "serverUrl": f"{base_url}/mcp",
         "serverInfo": {
             "name": "AnomalyArmor",
             "title": "AnomalyArmor MCP Server",
             "version": server_version,
-            "description": (
-                "Data observability tools for AI assistants. Query alerts, monitor "
-                "freshness, inspect schema changes, and manage destinations via "
-                "natural language."
-            ),
+            "description": description,
             "homepage": "https://www.anomalyarmor.ai",
             "documentation": "https://docs.anomalyarmor.ai/integrations/mcp-server",
             "vendor": {
