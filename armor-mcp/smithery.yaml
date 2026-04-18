@@ -1,0 +1,45 @@
+# Smithery configuration for the armor-mcp server.
+# https://smithery.ai/docs/build/project-config
+#
+# AnomalyArmor publishes both a hosted Streamable HTTP server (preferred,
+# OAuth) and a local stdio server (API key). Smithery primarily ranks
+# remote servers, so we declare the hosted endpoint as the canonical
+# transport and offer the local stdio runner as an alternative.
+
+version: 1
+runtime: container
+startCommand:
+  type: http
+  configSchema:
+    type: object
+    properties: {}
+  url: https://mcp.anomalyarmor.ai/mcp
+
+metadata:
+  name: anomalyarmor
+  displayName: AnomalyArmor
+  description: >-
+    Data observability for engineering teams. Query alerts, monitor
+    freshness, investigate schema drift, configure validity rules, and
+    trace lineage across your warehouse via 50+ structured tools.
+  homepage: https://www.anomalyarmor.ai
+  documentation: https://docs.anomalyarmor.ai/integrations/mcp-server
+  license: MIT
+  categories:
+    - data-observability
+    - monitoring
+    - alerting
+    - data-quality
+  keywords:
+    - data-observability
+    - schema-drift
+    - freshness
+    - data-quality
+    - snowflake
+    - bigquery
+    - postgres
+    - dbt
+    - lineage
+  authentication:
+    type: oauth2
+    discovery: https://mcp.anomalyarmor.ai/.well-known/oauth-protected-resource
