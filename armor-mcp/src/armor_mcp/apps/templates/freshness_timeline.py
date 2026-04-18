@@ -72,22 +72,34 @@ def html_body(payload: Any) -> str:
 
 
 def _render_summary(payload: dict) -> str:
-    total = payload.get("total_assets", 0)
-    fresh = payload.get("fresh_count", 0)
-    stale = payload.get("stale_count", 0)
-    unknown = payload.get("unknown_count", 0)
-    rate = payload.get("freshness_rate", 0)
+    # ``dict.get(key, default)`` only returns the default when the key is
+    # missing. Pydantic ``model_dump()`` serializes optional fields as
+    # explicit ``None``, which then crashes ``int(None)`` and the rate's
+    # ``f"{None:.1f}"``. Coerce via ``or 0`` (matches health_summary.py).
+    total = int(payload.get("total_assets") or 0)
+    fresh = int(payload.get("fresh_count") or 0)
+    stale = int(payload.get("stale_count") or 0)
+    unknown = int(payload.get("unknown_count") or 0)
+    rate = _safe_rate(payload.get("freshness_rate"))
     return f"""
 <h1>Freshness summary</h1>
-<p class="caption">{int(total)} monitored assets, {rate:.1f}% fresh.</p>
+<p class="caption">{total} monitored assets, {rate} fresh.</p>
 <div class="stat-grid">
-  <div class="stat-card"><div class="stat-label">Fresh</div><div class="stat-value" style="color:var(--ok)">{int(fresh)}</div></div>
-  <div class="stat-card"><div class="stat-label">Stale</div><div class="stat-value" style="color:var(--err)">{int(stale)}</div></div>
-  <div class="stat-card"><div class="stat-label">Unknown</div><div class="stat-value" style="color:var(--warn)">{int(unknown)}</div></div>
-  <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">{int(total)}</div></div>
+  <div class="stat-card"><div class="stat-label">Fresh</div><div class="stat-value" style="color:var(--ok)">{fresh}</div></div>
+  <div class="stat-card"><div class="stat-label">Stale</div><div class="stat-value" style="color:var(--err)">{stale}</div></div>
+  <div class="stat-card"><div class="stat-label">Unknown</div><div class="stat-value" style="color:var(--warn)">{unknown}</div></div>
+  <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">{total}</div></div>
 </div>
 <div id="armor-chart"></div>
 """.strip()
+
+
+def _safe_rate(value: Any) -> str:
+    """Format a percentage with a None/non-numeric fallback."""
+    try:
+        return f"{float(value):.1f}%"
+    except (TypeError, ValueError):
+        return "—"
 
 
 def _render_single(payload: dict) -> str:

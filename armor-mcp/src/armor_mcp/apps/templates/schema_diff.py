@@ -46,11 +46,14 @@ def html_body(payload: Any) -> str:
 
 
 def _render_summary(payload: dict) -> str:
-    total = int(payload.get("total_changes", 0))
-    unack = int(payload.get("unacknowledged", 0))
-    crit = int(payload.get("critical_count", 0))
-    warn = int(payload.get("warning_count", 0))
-    info = int(payload.get("info_count", 0))
+    # ``or 0`` handles both missing keys AND explicit None values (Pydantic
+    # ``model_dump()`` serializes optional fields as None, which crashes
+    # bare ``int()``). See freshness_timeline.py for the same pattern.
+    total = int(payload.get("total_changes") or 0)
+    unack = int(payload.get("unacknowledged") or 0)
+    crit = int(payload.get("critical_count") or 0)
+    warn = int(payload.get("warning_count") or 0)
+    info = int(payload.get("info_count") or 0)
     last = html.escape(str(payload.get("last_check") or "—"))
     return f"""
 <h1>Schema drift summary</h1>
