@@ -1,0 +1,37 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.anomalyarmor/armor-mcp",
+  "title": "AnomalyArmor",
+  "description": "Data observability for engineering teams. Query alerts, monitor freshness, investigate schema drift, configure validity rules, and trace lineage across your data warehouse (Snowflake, BigQuery, Postgres, Databricks, Redshift, ClickHouse, MySQL, SQL Server, Athena) via 50+ structured tools.",
+  "version": "0.6.0",
+  "websiteUrl": "https://www.anomalyarmor.ai",
+  "repository": {
+    "url": "https://github.com/anomalyarmor/agents",
+    "source": "github",
+    "subfolder": "armor-mcp"
+  },
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://mcp.anomalyarmor.ai/mcp"
+    }
+  ],
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "armor-mcp",
+      "version": "0.6.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ARMOR_API_KEY",
+          "description": "AnomalyArmor API key (aa_live_*). Generate at https://app.anomalyarmor.ai/settings/api-keys.",
+          "isSecret": true,
+          "isRequired": true
+        }
+      ]
+    }
+  ]
+}
