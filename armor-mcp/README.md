@@ -1,5 +1,7 @@
 # armor-mcp
 
+<!-- mcp-name: ai.anomalyarmor/armor-mcp -->
+
 [![PyPI](https://img.shields.io/pypi/v/armor-mcp.svg)](https://pypi.org/project/armor-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/anomalyarmor/agents/blob/main/LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-blue)](https://modelcontextprotocol.io)
