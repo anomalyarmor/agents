@@ -3,7 +3,7 @@
   "name": "ai.anomalyarmor/armor-mcp",
   "title": "AnomalyArmor",
   "description": "Data observability tools for engineering teams: alerts, freshness, schema drift, lineage, quality.",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "websiteUrl": "https://www.anomalyarmor.ai",
   "repository": {
     "url": "https://github.com/anomalyarmor/agents",
@@ -20,7 +20,7 @@
     {
       "registryType": "pypi",
       "identifier": "armor-mcp",
-      "version": "0.6.0",
+      "version": "0.6.1",
       "transport": {
         "type": "stdio"
       },
