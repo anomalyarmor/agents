@@ -1,15 +1,19 @@
 """Schema monitoring tools."""
 
 import asyncio
-
-from mcp.types import ToolAnnotations
+import json
 
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
+from armor_mcp.apps import render_app, to_plain
+from mcp.types import TextContent, ToolAnnotations
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"schema", "read"})
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"schema", "read"},
+)
 @sdk_tool
 async def get_schema_summary():
     """Get schema drift summary with total changes, unacknowledged count, and severity breakdown.
@@ -20,7 +24,10 @@ async def get_schema_summary():
     return await asyncio.to_thread(client.schema.summary)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"schema", "read"})
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"schema", "read"},
+)
 @sdk_tool
 async def list_schema_changes(
     asset_id: str | None = None,
@@ -40,13 +47,18 @@ async def list_schema_changes(
         limit: Maximum results (default 25)
     """
     client = _get_client()
-    return await asyncio.to_thread(
+    raw = await asyncio.to_thread(
         client.schema.changes,
         asset_id=asset_id,
         severity=severity,
         unacknowledged_only=unacknowledged_only,
         limit=limit,
     )
+    payload = to_plain(raw)
+    return [
+        TextContent(type="text", text=json.dumps(payload, default=str)),
+        render_app("schema_diff", payload),
+    ]
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"schema", "write"})
@@ -61,7 +73,9 @@ async def create_schema_baseline(asset_id: str, description: str | None = None):
         description: Optional description for the baseline
     """
     client = _get_client()
-    return await asyncio.to_thread(client.schema.create_baseline, asset_id, description=description)
+    return await asyncio.to_thread(
+        client.schema.create_baseline, asset_id, description=description
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(readOnlyHint=False), tags={"schema", "write"})
@@ -102,7 +116,10 @@ async def disable_schema_monitoring(asset_id: str):
     return await asyncio.to_thread(client.schema.disable_monitoring, asset_id)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"schema", "read"})
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"schema", "read"},
+)
 @sdk_tool
 async def get_schema_monitoring(asset_id: str):
     """Get schema monitoring configuration for an asset.
@@ -117,7 +134,10 @@ async def get_schema_monitoring(asset_id: str):
     return await asyncio.to_thread(client.schema.get, asset_id)
 
 
-@mcp.tool(annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True), tags={"schema", "read"})
+@mcp.tool(
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True),
+    tags={"schema", "read"},
+)
 @sdk_tool
 async def dry_run_schema(asset_id: str, schedule_type: str = "1d"):
     """Preview schema drift detection without persisting. Compares current

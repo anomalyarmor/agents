@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastmcp.exceptions import ToolError
 
-
 _TOOL_MODULES = [
     "armor_mcp.tools.health",
     "armor_mcp.tools.freshness",
@@ -50,6 +49,15 @@ def _patch_client(mock_client):
 class TestHealthTools:
 
     def test_health_summary(self):
+        """TECH-974: returns a [TextContent, EmbeddedResource] pair.
+
+        The TextContent holds the JSON payload; the EmbeddedResource holds
+        the inline UI for MCP Apps-capable hosts.
+        """
+        import json as _json
+
+        from mcp.types import EmbeddedResource, TextContent
+
         client = _mock_client()
         client.health.summary.return_value = MagicMock(
             model_dump=MagicMock(return_value={"overall_status": "healthy"})
@@ -60,7 +68,11 @@ class TestHealthTools:
         with _patch_client(client):
             result = asyncio.run(health_summary())
 
-        assert result == {"overall_status": "healthy"}
+        assert isinstance(result, list) and len(result) == 2
+        assert isinstance(result[0], TextContent)
+        assert _json.loads(result[0].text) == {"overall_status": "healthy"}
+        assert isinstance(result[1], EmbeddedResource)
+        assert result[1].resource.mimeType == "text/html"
         client.health.summary.assert_called_once()
 
     def test_get_todays_briefing(self):
@@ -81,6 +93,11 @@ class TestHealthTools:
 class TestFreshnessTools:
 
     def test_check_freshness(self):
+        """TECH-974: returns a [TextContent, EmbeddedResource] pair."""
+        import json as _json
+
+        from mcp.types import EmbeddedResource, TextContent
+
         client = _mock_client()
         client.freshness.check.return_value = MagicMock(
             model_dump=MagicMock(return_value={"tables": []})
@@ -91,7 +108,10 @@ class TestFreshnessTools:
         with _patch_client(client):
             result = asyncio.run(check_freshness(asset_id="asset-1"))
 
-        assert result == {"tables": []}
+        assert isinstance(result, list) and len(result) == 2
+        assert isinstance(result[0], TextContent)
+        assert _json.loads(result[0].text) == {"tables": []}
+        assert isinstance(result[1], EmbeddedResource)
         client.freshness.check.assert_called_once_with("asset-1")
 
 
@@ -122,9 +142,11 @@ class TestQualityTools:
         from armor_mcp.tools.quality import create_metric
 
         with _patch_client(client):
-            result = asyncio.run(create_metric(
-                asset_id="a1", table_path="public.orders", metric_type="row_count"
-            ))
+            result = asyncio.run(
+                create_metric(
+                    asset_id="a1", table_path="public.orders", metric_type="row_count"
+                )
+            )
 
         assert result == {"id": "m1", "metric_type": "row_count"}
         client.metrics.create.assert_called_once_with(
@@ -146,7 +168,9 @@ class TestAlertTools:
         from armor_mcp.tools.alerts import update_alert
 
         with _patch_client(client):
-            result = asyncio.run(update_alert(alert_id="a1", status="acknowledged", notes="on it"))
+            result = asyncio.run(
+                update_alert(alert_id="a1", status="acknowledged", notes="on it")
+            )
 
         assert result == {"id": "a1", "status": "acknowledged"}
         client.alerts.acknowledge.assert_called_once_with("a1", notes="on it")
@@ -160,13 +184,15 @@ class TestAlertTools:
         from armor_mcp.tools.alerts import update_alert
 
         with _patch_client(client):
-            result = asyncio.run(update_alert(
-                alert_id="a1",
-                status="resolved",
-                notes="fixed",
-                action_category="reran_job",
-                root_cause_category="pipeline_failure",
-            ))
+            result = asyncio.run(
+                update_alert(
+                    alert_id="a1",
+                    status="resolved",
+                    notes="fixed",
+                    action_category="reran_job",
+                    root_cause_category="pipeline_failure",
+                )
+            )
 
         assert result["status"] == "resolved"
         client.alerts.resolve.assert_called_once_with(
@@ -185,7 +211,9 @@ class TestAlertTools:
         from armor_mcp.tools.alerts import update_alert
 
         with _patch_client(client):
-            result = asyncio.run(update_alert(alert_id="a1", status="snoozed", duration_hours=48))
+            result = asyncio.run(
+                update_alert(alert_id="a1", status="snoozed", duration_hours=48)
+            )
 
         assert result["status"] == "snoozed"
         client.alerts.snooze.assert_called_once_with(
@@ -204,10 +232,12 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = asyncio.run(setup_destination(
-                destination_type="webhook",
-                webhook_url="https://example.com/hook",
-            ))
+            result = asyncio.run(
+                setup_destination(
+                    destination_type="webhook",
+                    webhook_url="https://example.com/hook",
+                )
+            )
 
         assert result == {"id": "d1", "type": "webhook"}
         client.destinations.create.assert_called_once_with(
@@ -225,11 +255,13 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = asyncio.run(setup_destination(
-                destination_type="email",
-                email="ops@example.com",
-                name="Ops Team",
-            ))
+            result = asyncio.run(
+                setup_destination(
+                    destination_type="email",
+                    email="ops@example.com",
+                    name="Ops Team",
+                )
+            )
 
         assert result == {"id": "d2", "type": "email"}
         client.destinations.create.assert_called_once_with(
@@ -247,10 +279,12 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = asyncio.run(setup_destination(
-                destination_type="slack",
-                channel_name="alerts",
-            ))
+            result = asyncio.run(
+                setup_destination(
+                    destination_type="slack",
+                    channel_name="alerts",
+                )
+            )
 
         assert result["status"] == "action_required"
         assert "oauth_url" in result
@@ -273,10 +307,12 @@ class TestDestinationTools:
 
         with _patch_client(client):
             with pytest.raises(ToolError, match="alerts.*alerts-prod"):
-                asyncio.run(setup_destination(
-                    destination_type="slack",
-                    channel_name="alerts",
-                ))
+                asyncio.run(
+                    setup_destination(
+                        destination_type="slack",
+                        channel_name="alerts",
+                    )
+                )
 
     def test_setup_slack_success(self):
         """Slack destination auto-discovers connection and finds channel."""
@@ -298,10 +334,12 @@ class TestDestinationTools:
         from armor_mcp.tools.destinations import setup_destination
 
         with _patch_client(client):
-            result = asyncio.run(setup_destination(
-                destination_type="slack",
-                channel_name="alerts",
-            ))
+            result = asyncio.run(
+                setup_destination(
+                    destination_type="slack",
+                    channel_name="alerts",
+                )
+            )
 
         assert result == {"id": "d3", "type": "slack"}
         client.integrations.create_slack_destination.assert_called_once_with(
@@ -331,6 +369,11 @@ class TestIntelligenceTools:
 class TestCatalogTools:
 
     def test_get_lineage(self):
+        """TECH-974: returns a [TextContent, EmbeddedResource] pair."""
+        import json as _json
+
+        from mcp.types import EmbeddedResource, TextContent
+
         client = _mock_client()
         client.lineage.get.return_value = MagicMock(
             model_dump=MagicMock(return_value={"nodes": [], "edges": []})
@@ -339,9 +382,14 @@ class TestCatalogTools:
         from armor_mcp.tools.catalog import get_lineage
 
         with _patch_client(client):
-            result = asyncio.run(get_lineage(asset_id="a1", depth=3, direction="upstream"))
+            result = asyncio.run(
+                get_lineage(asset_id="a1", depth=3, direction="upstream")
+            )
 
-        assert result == {"nodes": [], "edges": []}
+        assert isinstance(result, list) and len(result) == 2
+        assert isinstance(result[0], TextContent)
+        assert _json.loads(result[0].text) == {"nodes": [], "edges": []}
+        assert isinstance(result[1], EmbeddedResource)
         client.lineage.get.assert_called_once_with(
             asset_id="a1",
             depth=3,
@@ -357,12 +405,14 @@ class TestCatalogTools:
         from armor_mcp.tools.catalog import apply_tags
 
         with _patch_client(client):
-            result = asyncio.run(apply_tags(
-                asset_id="a1",
-                object_path="public.users.email",
-                tags=["pii", "sensitive"],
-                object_type="column",
-            ))
+            result = asyncio.run(
+                apply_tags(
+                    asset_id="a1",
+                    object_path="public.users.email",
+                    tags=["pii", "sensitive"],
+                    object_type="column",
+                )
+            )
 
         assert result == {"applied": ["pii", "sensitive"]}
 
@@ -392,11 +442,13 @@ class TestAssetTools:
         from armor_mcp.tools.assets import create_asset
 
         with _patch_client(client):
-            result = asyncio.run(create_asset(
-                name="Prod DB",
-                source_type="postgresql",
-                connection_config={"host": "localhost"},
-            ))
+            result = asyncio.run(
+                create_asset(
+                    name="Prod DB",
+                    source_type="postgresql",
+                    connection_config={"host": "localhost"},
+                )
+            )
 
         assert result == {"id": "a1", "name": "Prod DB"}
         client.assets.create.assert_called_once_with(
@@ -451,13 +503,15 @@ class TestReferentialTools:
         from armor_mcp.tools.referential import create_referential_check
 
         with _patch_client(client):
-            result = asyncio.run(create_referential_check(
-                asset_id="a1",
-                source_table="public.orders",
-                source_column="customer_id",
-                target_table="public.customers",
-                target_column="id",
-            ))
+            result = asyncio.run(
+                create_referential_check(
+                    asset_id="a1",
+                    source_table="public.orders",
+                    source_column="customer_id",
+                    target_table="public.customers",
+                    target_column="id",
+                )
+            )
 
         assert result == {"id": "rc1"}
         client.referential.create.assert_called_once()
@@ -485,7 +539,9 @@ class TestReferentialTools:
         from armor_mcp.tools.referential import manage_referential
 
         with _patch_client(client):
-            result = asyncio.run(manage_referential(action="execute", asset_id="a1", check_id="rc1"))
+            result = asyncio.run(
+                manage_referential(action="execute", asset_id="a1", check_id="rc1")
+            )
 
         assert result == {"status": "PASS"}
         client.referential.execute.assert_called_once_with("a1", "rc1")
@@ -516,7 +572,9 @@ class TestRecommendationTools:
         from armor_mcp.tools.recommendations import recommend
 
         with _patch_client(client):
-            result = asyncio.run(recommend(recommendation_type="freshness", asset_id="a1"))
+            result = asyncio.run(
+                recommend(recommendation_type="freshness", asset_id="a1")
+            )
 
         assert result == {"recommendations": []}
         client.recommendations.freshness.assert_called_once_with(
@@ -535,12 +593,14 @@ class TestRecommendationTools:
         from armor_mcp.tools.recommendations import recommend
 
         with _patch_client(client):
-            result = asyncio.run(recommend(
-                recommendation_type="thresholds",
-                asset_id="a1",
-                days=14,
-                limit=5,
-            ))
+            result = asyncio.run(
+                recommend(
+                    recommendation_type="thresholds",
+                    asset_id="a1",
+                    days=14,
+                    limit=5,
+                )
+            )
 
         assert result == {"recommendations": []}
         client.recommendations.thresholds.assert_called_once_with(
@@ -605,7 +665,9 @@ class TestCoverageTools:
         from armor_mcp.tools.coverage import manage_coverage
 
         with _patch_client(client):
-            result = asyncio.run(manage_coverage(action="gaps", asset_id="a1", limit=10))
+            result = asyncio.run(
+                manage_coverage(action="gaps", asset_id="a1", limit=10)
+            )
 
         assert result["total_tables"] == 50
         client.coverage.gaps.assert_called_once_with("a1", limit=10)
@@ -619,11 +681,13 @@ class TestCoverageTools:
         from armor_mcp.tools.coverage import manage_coverage
 
         with _patch_client(client):
-            result = asyncio.run(manage_coverage(
-                action="apply",
-                asset_id="a1",
-                types=["freshness"],
-            ))
+            result = asyncio.run(
+                manage_coverage(
+                    action="apply",
+                    asset_id="a1",
+                    types=["freshness"],
+                )
+            )
 
         assert result["applied_count"] == 3
         client.coverage.apply.assert_called_once_with(

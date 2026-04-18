@@ -1,12 +1,13 @@
 """Health & discovery tools."""
 
 import asyncio
-
-from mcp.types import ToolAnnotations
+import json
 
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
+from armor_mcp.apps import render_app, to_plain
+from mcp.types import TextContent, ToolAnnotations
 
 
 @mcp.tool(
@@ -22,7 +23,12 @@ async def health_summary():
     or list_schema_changes.
     """
     client = _get_client()
-    return await asyncio.to_thread(client.health.summary)
+    raw = await asyncio.to_thread(client.health.summary)
+    payload = to_plain(raw)
+    return [
+        TextContent(type="text", text=json.dumps(payload, default=str)),
+        render_app("health_summary", payload),
+    ]
 
 
 @mcp.tool(
