@@ -241,14 +241,20 @@ def render_app(template_name: str, payload: Any) -> EmbeddedResource:
     """
     module = _load_template(template_name)
     body_html = module.html_body(payload)
-    spec = getattr(module, "vega_lite_spec", None)
-    spec_json = json.dumps(spec(payload), default=str) if callable(spec) else "null"
+    spec_fn = getattr(module, "vega_lite_spec", None)
+    # Templates can declare vega_lite_spec but still return None for shapes
+    # that don't have a chart (single-status payloads, empty lists, etc.).
+    # Decide on the actual spec value, not just function existence; loading
+    # the Vega CDN and bootstrap with a null spec calls vegaEmbed(el, null)
+    # which throws and renders a "chart render failed" placeholder.
+    spec_obj = spec_fn(payload) if callable(spec_fn) else None
+    needs_vega = spec_obj is not None
+    spec_json = json.dumps(spec_obj, default=str) if needs_vega else "null"
     data_json = json.dumps(payload, default=str)
     title = getattr(module, "TITLE", f"AnomalyArmor — {template_name}")
 
     # If this template doesn't need Vega-Lite, skip the CDN load AND the
     # bootstrap. Keeps table/stat-card renders small and CDN-independent.
-    needs_vega = callable(spec)
     vega_scripts = _VEGA_SCRIPTS if needs_vega else ""
     bootstrap = _BOOTSTRAP_SCRIPT if needs_vega else ""
 

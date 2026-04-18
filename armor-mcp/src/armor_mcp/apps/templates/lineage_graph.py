@@ -17,12 +17,16 @@ TITLE = "AnomalyArmor — Lineage"
 
 
 def html_body(payload: Any) -> str:
+    # ``get_lineage(list_all=True)`` returns a flat list directly via
+    # ``client.lineage.list``; ``.get`` returns a ``LineageGraph`` dict.
+    # Some adapters wrap the flat shape in ``{"items": [...]}``; render
+    # both before falling through to the dict-shaped graph branch.
+    if isinstance(payload, list):
+        return _render_flat(payload)
+
     if not isinstance(payload, dict):
         return "<h1>Lineage</h1>" '<p class="caption">Unrecognized lineage payload.</p>'
 
-    # ``get_lineage(list_all=True)`` returns a flat list via
-    # ``client.lineage.list``; ``.get`` returns a ``LineageGraph``. If a
-    # caller hands us the flat shape we still want something useful.
     if isinstance(payload.get("items"), list) and "root" not in payload:
         return _render_flat(payload["items"])
 

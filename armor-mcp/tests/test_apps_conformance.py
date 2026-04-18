@@ -200,6 +200,37 @@ def test_kebab_and_snake_case_resolve_to_same_template() -> None:
     assert snake.resource.text == kebab.resource.text
 
 
+def test_freshness_empty_list_skips_vega_cdn() -> None:
+    """Regression: empty/single payloads must NOT load the Vega CDN.
+
+    ``vega_lite_spec`` returns ``None`` for empty lists; before the fix the
+    runner gated CDN loading on ``callable(spec)``, so the bootstrap still
+    ran with ``vegaEmbed(el, null, ...)`` and threw a host-visible error.
+    """
+    html = render_app("freshness_timeline", []).resource.text
+    assert "vega@5" not in html, "Vega CDN loaded for an empty payload"
+    assert "vegaEmbed" not in html, "Vega bootstrap shipped with null spec"
+
+
+def test_lineage_flat_list_payload_renders() -> None:
+    """Regression: ``get_lineage(list_all=True)`` returns a flat list.
+
+    Before the fix, the top-level dict guard rejected list payloads and
+    every flat-shape call rendered "Unrecognized lineage payload."
+    """
+    payload = [
+        {
+            "upstream_qualified_name": "raw.events",
+            "downstream_qualified_name": "stg.events",
+            "edge_type": "data_flow",
+        }
+    ]
+    html = render_app("lineage_graph", payload).resource.text
+    assert "Unrecognized lineage payload" not in html
+    assert "raw.events" in html
+    assert "stg.events" in html
+
+
 def test_script_close_tag_in_payload_is_escaped() -> None:
     """Regression: a payload value containing ``</script>`` must not terminate
     the data island. ``_escape_json_for_script`` replaces ``<`` with ``\\u003c``
