@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.anomalyarmor/armor-mcp",
+  "name": "ai.anomalyarmor/armor-mcp",
   "title": "AnomalyArmor",
   "description": "Data observability tools for engineering teams: alerts, freshness, schema drift, lineage, quality.",
   "version": "0.6.0",
