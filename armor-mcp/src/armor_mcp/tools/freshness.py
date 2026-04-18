@@ -1,12 +1,13 @@
 """Freshness monitoring tools."""
 
 import asyncio
-
-from mcp.types import ToolAnnotations
+import json
 
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import sdk_tool
+from armor_mcp.apps import render_app, to_plain
+from mcp.types import TextContent, ToolAnnotations
 
 
 @mcp.tool(
@@ -21,7 +22,12 @@ async def get_freshness_summary():
     use check_freshness.
     """
     client = _get_client()
-    return await asyncio.to_thread(client.freshness.summary)
+    raw = await asyncio.to_thread(client.freshness.summary)
+    payload = to_plain(raw)
+    return [
+        TextContent(type="text", text=json.dumps(payload, default=str)),
+        render_app("freshness_timeline", payload),
+    ]
 
 
 @mcp.tool(
@@ -44,8 +50,16 @@ async def check_freshness(
     """
     client = _get_client()
     if stale_only:
-        return await asyncio.to_thread(client.freshness.list, asset_id=asset_id, status="stale")
-    return await asyncio.to_thread(client.freshness.check, asset_id)
+        raw = await asyncio.to_thread(
+            client.freshness.list, asset_id=asset_id, status="stale"
+        )
+    else:
+        raw = await asyncio.to_thread(client.freshness.check, asset_id)
+    payload = to_plain(raw)
+    return [
+        TextContent(type="text", text=json.dumps(payload, default=str)),
+        render_app("freshness_timeline", payload),
+    ]
 
 
 @mcp.tool(
@@ -120,7 +134,9 @@ async def list_freshness_schedules(
         limit: Maximum results (default 25)
     """
     client = _get_client()
-    return await asyncio.to_thread(client.freshness.list_schedules, asset_id=asset_id, limit=limit)
+    return await asyncio.to_thread(
+        client.freshness.list_schedules, asset_id=asset_id, limit=limit
+    )
 
 
 _VALID_SCHEDULE_ACTIONS = ("update", "delete")

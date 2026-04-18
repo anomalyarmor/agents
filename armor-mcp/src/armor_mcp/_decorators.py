@@ -7,6 +7,28 @@ from functools import wraps
 from typing import Any, Callable
 
 from fastmcp.exceptions import ToolError
+from fastmcp.tools.tool import ToolResult
+from mcp.types import (
+    AudioContent,
+    EmbeddedResource,
+    ImageContent,
+    ResourceLink,
+    TextContent,
+)
+
+# FastMCP treats any of these (or a list of them) as pre-built tool output:
+# the SDK emits them verbatim instead of re-wrapping the return value. A tool
+# that opts into MCP Apps (TECH-974) returns a list like
+# ``[TextContent(...), EmbeddedResource(...)]``; we must not ``model_dump()``
+# those into plain dicts or the ``EmbeddedResource`` becomes an inert JSON
+# object and hosts stop rendering the inline UI.
+_CONTENT_BLOCK_TYPES: tuple[type, ...] = (
+    TextContent,
+    ImageContent,
+    AudioContent,
+    ResourceLink,
+    EmbeddedResource,
+)
 
 
 def _attr(obj: Any, key: str, default: Any = None) -> Any:
@@ -30,7 +52,23 @@ def _serialize(result: Any) -> Any:
     """Serialize SDK results (Pydantic models, lists, dicts) to JSON-safe dicts.
 
     Used by both tools (return dict) and resources (dict then json.dumps).
+
+    Pass-through for FastMCP-native shapes (TECH-974): a ``ToolResult``, a
+    single MCP content block, or a list whose elements are all content
+    blocks. These are pre-built outputs — calling ``model_dump()`` on them
+    would strip the typed wrapper and turn inline UI into inert JSON.
     """
+    if isinstance(result, ToolResult):
+        return result
+    if isinstance(result, _CONTENT_BLOCK_TYPES):
+        return result
+    if (
+        isinstance(result, list)
+        and result
+        and all(isinstance(item, _CONTENT_BLOCK_TYPES) for item in result)
+    ):
+        return result
+
     if isinstance(result, list):
         return [
             item.model_dump() if hasattr(item, "model_dump") else item

@@ -1,11 +1,13 @@
 """Catalog tools: lineage, jobs, and tags."""
 
 import asyncio
+import json
 
 from armor_mcp._app import mcp
 from armor_mcp._client import _get_client
 from armor_mcp._decorators import _attr, sdk_tool
-from mcp.types import ToolAnnotations
+from armor_mcp.apps import render_app, to_plain
+from mcp.types import TextContent, ToolAnnotations
 
 # -- Lineage -----------------------------------------------------------------
 
@@ -33,13 +35,19 @@ async def get_lineage(
     """
     client = _get_client()
     if list_all:
-        return await asyncio.to_thread(client.lineage.list, asset_id=asset_id)
-    return await asyncio.to_thread(
-        client.lineage.get,
-        asset_id=asset_id,
-        depth=depth,
-        direction=direction,
-    )
+        raw = await asyncio.to_thread(client.lineage.list, asset_id=asset_id)
+    else:
+        raw = await asyncio.to_thread(
+            client.lineage.get,
+            asset_id=asset_id,
+            depth=depth,
+            direction=direction,
+        )
+    payload = to_plain(raw)
+    return [
+        TextContent(type="text", text=json.dumps(payload, default=str)),
+        render_app("lineage_graph", payload),
+    ]
 
 
 # -- Jobs --------------------------------------------------------------------
