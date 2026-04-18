@@ -86,13 +86,27 @@ def _render_changes(changes: list) -> str:
 """.strip()
 
 
+def _optional_str(value: Any) -> str:
+    """Render an optional payload value as a string with a None fallback.
+
+    Replaces the older ``str(value) or "—"`` idiom which collapsed any
+    falsy-but-real value (``0``, ``False``, ``""``) to the placeholder.
+    """
+    if value is None:
+        return "—"
+    return str(value)
+
+
 def _change_row(change: dict) -> str:
     change_type = str(change.get("change_type", "unknown"))
     row_class = _CHANGE_ROW_CLASS.get(change_type, "row-change")
     qn = html.escape(str(change.get("qualified_name", "—")))
-    column = html.escape(str(change.get("column_name") or "—"))
-    old_value = html.escape(str(change.get("old_value") or "—"))
-    new_value = html.escape(str(change.get("new_value") or "—"))
+    column = html.escape(_optional_str(change.get("column_name")))
+    # `or "—"` would mask falsy-but-real values like 0 or False (e.g., a
+    # column default flipping from 0 to 1). Distinguish "missing" from
+    # "falsy" via an explicit None check.
+    old_value = html.escape(_optional_str(change.get("old_value")))
+    new_value = html.escape(_optional_str(change.get("new_value")))
     severity = str(change.get("severity", "info"))
     pill_class = _SEVERITY_PILL.get(severity, "pill-warn")
     detected = html.escape(str(change.get("detected_at") or "—"))

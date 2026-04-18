@@ -116,8 +116,10 @@ def _attention_list(items: list) -> str:
             f"<td>{title}</td></tr>"
         )
     body = "\n".join(rows) if rows else ""
+    # Count rendered rows, not raw input. Non-dict entries are filtered
+    # out above, so len(items) overstates what the user actually sees.
     return f"""
-<h1 style="font-size:14px;margin-top:20px;margin-bottom:4px">Needs attention ({len(items)})</h1>
+<h1 style="font-size:14px;margin-top:20px;margin-bottom:4px">Needs attention ({len(rows)})</h1>
 <table class="armor-table">
   <tbody>
 {body}
