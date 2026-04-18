@@ -69,10 +69,11 @@ def _render_summary(payload: dict) -> str:
 
 
 def _render_changes(changes: list) -> str:
-    count = len(changes)
-    if count == 0:
+    if not changes:
         return "<h1>Schema drift</h1>" '<p class="caption">No changes detected.</p>'
-    rows = "\n".join(_change_row(c) for c in changes if isinstance(c, dict))
+    dict_changes = [c for c in changes if isinstance(c, dict)]
+    rows = "\n".join(_change_row(c) for c in dict_changes)
+    count = len(dict_changes)
     return f"""
 <h1>Schema changes ({count})</h1>
 <table class="armor-table">

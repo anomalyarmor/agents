@@ -121,8 +121,11 @@ def _render_single(payload: dict) -> str:
 
 
 def _render_list(payload: list) -> str:
-    rows = "\n".join(_list_row(item) for item in payload)
-    count = len(payload)
+    # Match the filter that _list_row applies so the heading count
+    # reflects what the user actually sees.
+    dict_items = [item for item in payload if isinstance(item, dict)]
+    rows = "\n".join(_list_row(item) for item in dict_items)
+    count = len(dict_items)
     return f"""
 <h1>Freshness ({count} table{'s' if count != 1 else ''})</h1>
 <div id="armor-chart"></div>
