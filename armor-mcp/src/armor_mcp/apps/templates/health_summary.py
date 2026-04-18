@@ -54,10 +54,17 @@ def _stat_cards(alerts: dict, freshness: dict, schema: dict) -> str:
 
     # Alerts dict shape varies across SDK versions; prefer common keys
     # and surface a "—" when nothing is populated rather than fabricating.
+    # Coerce to int even though the value should already be numeric -- a
+    # future SDK shape change could land a string here, and unescaped
+    # interpolation under script-src 'unsafe-inline' would let any inline
+    # event-handler markup execute.
     active = _first_populated(
         alerts, ("active_count", "triggered_count", "open_count", "total_active")
     )
-    active_display = str(active) if active is not None else "—"
+    try:
+        active_display = str(int(active)) if active is not None else "—"
+    except (TypeError, ValueError):
+        active_display = "—"
 
     return f"""
   <div class="stat-card">
