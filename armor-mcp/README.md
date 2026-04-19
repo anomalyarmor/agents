@@ -5,6 +5,7 @@
 [![PyPI](https://img.shields.io/pypi/v/armor-mcp.svg)](https://pypi.org/project/armor-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/anomalyarmor/agents/blob/main/LICENSE)
 [![MCP](https://img.shields.io/badge/MCP-2025--06--18-blue)](https://modelcontextprotocol.io)
+[![Glama](https://glama.ai/mcp/servers/anomalyarmor/agents/badges/score.svg)](https://glama.ai/mcp/servers/anomalyarmor/agents)
 
 The **AnomalyArmor MCP server** lets AI assistants (Claude Code, Cursor, Claude Desktop, any MCP client) interact with your data warehouse through 50+ structured tools: query alerts, monitor freshness, investigate schema drift, configure validity rules, and trace lineage in natural language.
 
