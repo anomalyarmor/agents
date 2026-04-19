@@ -1,5 +1,10 @@
 # AnomalyArmor Agents
 
+[![PyPI](https://img.shields.io/pypi/v/armor-mcp.svg)](https://pypi.org/project/armor-mcp/)
+[![npm](https://img.shields.io/npm/v/@anomalyarmor/sdk.svg)](https://www.npmjs.com/package/@anomalyarmor/sdk)
+[![Glama](https://glama.ai/mcp/servers/anomalyarmor/agents/badges/score.svg)](https://glama.ai/mcp/servers/anomalyarmor/agents)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 AI skills and MCP server for AnomalyArmor data observability. Monitor data quality, detect schema drift, and manage alerts directly from Claude Code, Cursor, or any MCP-compatible AI tool.
 
 **Version**: 0.6.0 | **Tools**: 52 consolidated MCP tools | **Skills**: 14 slash commands
