@@ -29,6 +29,14 @@ Create two environments in GitHub repository settings:
 - `pypi` - For production PyPI releases
 - `testpypi` - For test releases
 
+### 4. `RELEASE_PAT` secret (required for the auto-release chain)
+
+GitHub deliberately suppresses workflow triggers from events created by `GITHUB_TOKEN` (to prevent infinite recursion). That means a release created by `auto-release.yml` using `GITHUB_TOKEN` would **not** fire the `release.types: [published]` listener on `publish-pypi.yml`, silently breaking the publish chain. The workaround is a Personal Access Token:
+
+1. Create a classic PAT at <https://github.com/settings/tokens/new> with `repo` scope and an expiration you can stomach (12 months is common — set a calendar reminder to rotate).
+2. Add it at <https://github.com/anomalyarmor/agents/settings/secrets/actions/new> as `RELEASE_PAT`.
+3. The workflow uses `secrets.RELEASE_PAT || secrets.GITHUB_TOKEN` so the release still gets created if the PAT is missing, but it will print a loud `::warning::` telling you to trigger `publish-pypi.yml` by hand.
+
 ## Version Management
 
 Versions must be consistent across:

@@ -62,13 +62,26 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Create release if not already present
+        # Token selection:
+        #   RELEASE_PAT is a classic PAT (scope: `repo`) stored as a repo
+        #   secret. It's required for `publish-pypi.yml` to cascade: GitHub
+        #   deliberately suppresses workflow triggers for events created
+        #   via `GITHUB_TOKEN`, so a release created with `GITHUB_TOKEN`
+        #   would not fire the `release.types: [published]` listener on
+        #   publish-pypi.yml. See RELEASING.md for the one-time setup. If
+        #   RELEASE_PAT is unset we fall back to GITHUB_TOKEN so at least
+        #   the release is created + visible in the UI, then emit a loud
+        #   warning so the operator knows to trigger publish-pypi.yml by
+        #   hand.
+        #
         # TAG / TARGET ride through `env:` rather than inline `${{ }}` in
         # the shell body so a malicious version string containing shell
         # metacharacters (e.g. `$(...)`) can't execute. Actions textually
         # substitutes `${{ }}` before the shell runs; env substitution
         # happens inside the shell process and is not re-parsed.
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
+          HAS_RELEASE_PAT: ${{ secrets.RELEASE_PAT != '' }}
           TAG: ${{ steps.version.outputs.tag }}
           # Pin the tag to the SHA that triggered this workflow, not to
           # whatever `main` looks like when `gh release create` happens to
@@ -91,4 +104,8 @@ jobs:
             --target "$TARGET" \
             --title "$TAG" \
             --generate-notes
-          echo "::notice::Released $TAG at $TARGET; publish-pypi.yml should now fire and push to PyPI."
+          if [ "$HAS_RELEASE_PAT" != "true" ]; then
+            echo "::warning::RELEASE_PAT secret is not set. Release $TAG was created using GITHUB_TOKEN, which GitHub suppresses from triggering downstream workflows. publish-pypi.yml will NOT auto-fire. Trigger it manually with 'gh workflow run publish-pypi.yml -f version=${TAG#v} -f dry_run=false' or set up RELEASE_PAT per RELEASING.md."
+          else
+            echo "::notice::Released $TAG at $TARGET; publish-pypi.yml should now fire and push to PyPI."
+          fi
