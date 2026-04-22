@@ -62,11 +62,16 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Create release if not already present
+        # TAG rides through `env:` rather than inline `${{ }}` in the shell
+        # body so a malicious version string containing shell metacharacters
+        # (e.g. `$(...)`) can't execute. Actions textually substitutes
+        # `${{ }}` before the shell runs; env substitution happens inside
+        # the shell process and is not re-parsed.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           set -euo pipefail
-          TAG="${{ steps.version.outputs.tag }}"
           # `gh release create` is atomic: it creates the tag (at the default
           # branch HEAD) and the release in one API call. If we split those
           # into `git tag && git push && gh release create`, a failure on
