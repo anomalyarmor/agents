@@ -62,28 +62,33 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
       - name: Create release if not already present
-        # TAG rides through `env:` rather than inline `${{ }}` in the shell
-        # body so a malicious version string containing shell metacharacters
-        # (e.g. `$(...)`) can't execute. Actions textually substitutes
-        # `${{ }}` before the shell runs; env substitution happens inside
-        # the shell process and is not re-parsed.
+        # TAG / TARGET ride through `env:` rather than inline `${{ }}` in
+        # the shell body so a malicious version string containing shell
+        # metacharacters (e.g. `$(...)`) can't execute. Actions textually
+        # substitutes `${{ }}` before the shell runs; env substitution
+        # happens inside the shell process and is not re-parsed.
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.version.outputs.tag }}
+          # Pin the tag to the SHA that triggered this workflow, not to
+          # whatever `main` looks like when `gh release create` happens to
+          # run. Without this, a commit that lands on `main` between
+          # trigger and release creation would pull the tag to a newer
+          # commit, and publish-pypi.yml would then build from that later
+          # state instead of the intended version bump.
+          TARGET: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # `gh release create` is atomic: it creates the tag (at the default
-          # branch HEAD) and the release in one API call. If we split those
-          # into `git tag && git push && gh release create`, a failure on
-          # the last step leaves an orphaned tag on remote that blocks every
-          # subsequent auto-release until a human deletes it. Letting gh own
-          # both steps makes this self-healing: a retried run with the tag
-          # already present reuses it.
+          # `gh release create` is atomic: it creates the tag (at the SHA
+          # passed via --target) and the release in one API call. Letting
+          # gh own both makes this self-healing: a retried run with the tag
+          # already present reuses it rather than failing.
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists; nothing to do."
             exit 0
           fi
           gh release create "$TAG" \
+            --target "$TARGET" \
             --title "$TAG" \
             --generate-notes
-          echo "::notice::Released $TAG; publish-pypi.yml should now fire and push to PyPI."
+          echo "::notice::Released $TAG at $TARGET; publish-pypi.yml should now fire and push to PyPI."
