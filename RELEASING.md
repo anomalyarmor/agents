@@ -29,6 +29,14 @@ Create two environments in GitHub repository settings:
 - `pypi` - For production PyPI releases
 - `testpypi` - For test releases
 
+### 4. `RELEASE_PAT` secret (required for the auto-release chain)
+
+GitHub deliberately suppresses workflow triggers from events created by `GITHUB_TOKEN` (to prevent infinite recursion). That means a release created by `auto-release.yml` using `GITHUB_TOKEN` would **not** fire the `release.types: [published]` listener on `publish-pypi.yml`, silently breaking the publish chain. The workaround is a Personal Access Token:
+
+1. Create a classic PAT at <https://github.com/settings/tokens/new> with `repo` scope and an expiration you can stomach (12 months is common — set a calendar reminder to rotate).
+2. Add it at <https://github.com/anomalyarmor/agents/settings/secrets/actions/new> as `RELEASE_PAT`.
+3. The workflow uses `secrets.RELEASE_PAT || secrets.GITHUB_TOKEN` so the release still gets created if the PAT is missing, but it will print a loud `::warning::` telling you to trigger `publish-pypi.yml` by hand.
+
 ## Version Management
 
 Versions must be consistent across:
@@ -82,6 +90,25 @@ If `auto-release.yml` is disabled or you need to re-release an existing version:
 1. Update the version (same as step 1 above), commit, push.
 2. Create a GitHub release manually: tag `vX.Y.Z`, title `vX.Y.Z`, auto-generate notes.
 3. `publish-pypi.yml` picks it up the same way.
+
+## Recovery
+
+**Release was auto-created but didn't reach PyPI (RELEASE_PAT wasn't set):**
+
+`auto-release.yml` will print a `::warning::` in this case. The fix is a two-step dance because GitHub won't re-fire the release event for a release that already exists:
+
+1. Set up `RELEASE_PAT` per [Prerequisites](#prerequisites).
+2. Delete the orphaned release + tag:
+   ```bash
+   gh release delete vX.Y.Z --yes --cleanup-tag
+   ```
+3. Re-run `auto-release.yml` manually:
+   ```bash
+   gh workflow run auto-release.yml
+   ```
+   The idempotency check now sees no existing release, creates one using `RELEASE_PAT`, and `publish-pypi.yml` fires on the release event and publishes to PyPI.
+
+**Do not** run `gh workflow run publish-pypi.yml`. That path publishes to TestPyPI (`workflow_dispatch` → `publish-testpypi` job), not real PyPI (`publish-pypi` only fires on the `release` event).
 
 ## Troubleshooting
 
