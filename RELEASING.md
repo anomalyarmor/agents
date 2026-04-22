@@ -40,6 +40,33 @@ The CI runs `scripts/check-versions.py` to verify consistency.
 
 ## Release Process
 
+### Production Release (automated)
+
+Bump the version in a PR, merge, done. The `auto-release.yml` workflow watches `main` for version-bump commits and creates the tag + GitHub release, which then triggers `publish-pypi.yml` to push to PyPI.
+
+1. Update the version in all three places:
+   ```bash
+   # armor-mcp/pyproject.toml
+   version = "X.Y.Z"
+
+   # armor-mcp/server.json
+   "version": "X.Y.Z",
+
+   # .claude-plugin/marketplace.json (both top-level and plugins[0])
+   "version": "X.Y.Z"
+   ```
+
+2. Commit, push, and merge the PR:
+   ```bash
+   git commit -am "chore: bump version to X.Y.Z"
+   ```
+
+3. After merge to `main`:
+   - `auto-release.yml` detects the version bump, verifies consistency via `scripts/check-versions.py`, creates tag `vX.Y.Z` + a GitHub release with auto-generated notes.
+   - That release fires `publish-pypi.yml`, which re-runs version checks, builds, and publishes to PyPI.
+
+If the same version is merged twice (e.g. after a revert), `auto-release.yml` skips silently instead of erroring — it's idempotent on version number.
+
 ### Testing with TestPyPI
 
 1. Go to Actions > "Publish armor-mcp to PyPI"
@@ -48,36 +75,13 @@ The CI runs `scripts/check-versions.py` to verify consistency.
 4. Optionally enable "Dry run" to preview without publishing
 5. Click "Run workflow"
 
-### Production Release
+### Manual release (fallback)
 
-1. Update versions in both files:
-   ```bash
-   # In armor-mcp/pyproject.toml
-   version = "X.Y.Z"
-   
-   # In .claude-plugin/marketplace.json
-   "version": "X.Y.Z"
-   ```
+If `auto-release.yml` is disabled or you need to re-release an existing version:
 
-2. Commit and push:
-   ```bash
-   git add armor-mcp/pyproject.toml .claude-plugin/marketplace.json
-   git commit -m "chore: bump version to X.Y.Z"
-   git push
-   ```
-
-3. Create a GitHub Release:
-   - Go to Releases > "Create a new release"
-   - Tag: `vX.Y.Z` (e.g., `v0.1.0`)
-   - Title: `vX.Y.Z`
-   - Description: Release notes
-   - Click "Publish release"
-
-4. The workflow will automatically:
-   - Run version consistency checks
-   - Run tests
-   - Build the package
-   - Publish to PyPI
+1. Update the version (same as step 1 above), commit, push.
+2. Create a GitHub release manually: tag `vX.Y.Z`, title `vX.Y.Z`, auto-generate notes.
+3. `publish-pypi.yml` picks it up the same way.
 
 ## Troubleshooting
 
