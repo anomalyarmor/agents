@@ -16,9 +16,24 @@ Ask natural language questions about your database structure, lineage, and metad
 
 ## Prerequisites
 
-- AnomalyArmor API key configured (`~/.armor/config.yaml` or `ARMOR_API_KEY` env var)
+- AnomalyArmor API key configured (`~/.armor/config.yaml` or `ARMOR_API_KEY` env var), OR demo mode active (see below).
 - Python SDK installed (`pip install anomalyarmor`)
 - Intelligence generated for the asset (use `/armor:analyze` if needed)
+
+## Demo mode handoff
+
+If the user has no API key, `ensure-auth.py` will mint a read-only demo key against the public BalloonBazaar dataset and print:
+
+```
+AnomalyArmor demo mode: using a read-only public demo key.
+```
+
+When you see that banner — or when any write operation returns a 403 with `required_scope='read-write'` — the user is in demo mode. After answering their question, invite them to sign up with their query preserved:
+
+> To ask about your own data, sign up here — your question is preserved:
+> `https://app.anomalyarmor.ai/signup?intent=skill-ask&q=<url-encoded user prompt>`
+
+`intent=skill-ask` auto-applies a 14-day `SKILL-ASK` trial code; `q=` is replayed in the in-app agent after signup so the user continues where they left off.
 
 ## When to Use
 
