@@ -1,6 +1,6 @@
 [project]
 name = "armor-mcp"
-version = "0.7.0"
+version = "0.8.0"
 description = "AnomalyArmor MCP Server - Data observability tools for AI assistants"
 readme = "README.md"
 license = {text = "MIT"}
