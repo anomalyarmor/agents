@@ -91,6 +91,25 @@ If `auto-release.yml` is disabled or you need to re-release an existing version:
 2. Create a GitHub release manually: tag `vX.Y.Z`, title `vX.Y.Z`, auto-generate notes.
 3. `publish-pypi.yml` picks it up the same way.
 
+## Recovery
+
+**Release was auto-created but didn't reach PyPI (RELEASE_PAT wasn't set):**
+
+`auto-release.yml` will print a `::warning::` in this case. The fix is a two-step dance because GitHub won't re-fire the release event for a release that already exists:
+
+1. Set up `RELEASE_PAT` per [Prerequisites](#prerequisites).
+2. Delete the orphaned release + tag:
+   ```bash
+   gh release delete vX.Y.Z --yes --cleanup-tag
+   ```
+3. Re-run `auto-release.yml` manually:
+   ```bash
+   gh workflow run auto-release.yml
+   ```
+   The idempotency check now sees no existing release, creates one using `RELEASE_PAT`, and `publish-pypi.yml` fires on the release event and publishes to PyPI.
+
+**Do not** run `gh workflow run publish-pypi.yml`. That path publishes to TestPyPI (`workflow_dispatch` → `publish-testpypi` job), not real PyPI (`publish-pypi` only fires on the `release` event).
+
 ## Troubleshooting
 
 ### Version mismatch error

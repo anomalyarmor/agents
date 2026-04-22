@@ -24,6 +24,10 @@ on:
       - "armor-mcp/pyproject.toml"
       - "armor-mcp/server.json"
       - ".claude-plugin/marketplace.json"
+  # Manual re-run path for the "RELEASE_PAT wasn't set the first time"
+  # recovery scenario documented in RELEASING.md. No inputs; the workflow
+  # always reads the current pyproject.toml version.
+  workflow_dispatch:
 
 concurrency:
   group: auto-release-armor-mcp
@@ -105,7 +109,12 @@ jobs:
             --title "$TAG" \
             --generate-notes
           if [ "$HAS_RELEASE_PAT" != "true" ]; then
-            echo "::warning::RELEASE_PAT secret is not set. Release $TAG was created using GITHUB_TOKEN, which GitHub suppresses from triggering downstream workflows. publish-pypi.yml will NOT auto-fire. Trigger it manually with 'gh workflow run publish-pypi.yml -f version=${TAG#v} -f dry_run=false' or set up RELEASE_PAT per RELEASING.md."
+            # Don't suggest `gh workflow run publish-pypi.yml`: that trigger
+            # path only publishes to TestPyPI (publish-pypi is gated on
+            # `github.event_name == 'release'`). The only way to hit PyPI
+            # without editing publish-pypi.yml is a release event created
+            # by a non-GITHUB_TOKEN actor. Recovery lives in RELEASING.md.
+            echo "::warning::RELEASE_PAT secret is not set. Release $TAG was created using GITHUB_TOKEN, which GitHub suppresses from triggering downstream workflows — publish-pypi.yml will NOT fire and $TAG will NOT reach PyPI. See RELEASING.md #recovery for the two-step fix (set up RELEASE_PAT, then delete this release and re-run auto-release.yml via workflow_dispatch)."
           else
             echo "::notice::Released $TAG at $TARGET; publish-pypi.yml should now fire and push to PyPI."
           fi
