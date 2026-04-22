@@ -1,0 +1,89 @@
+name: "Auto-release armor-mcp on version bump"
+
+# Fires when a push to main changes any of the files that declare the
+# armor-mcp / plugin version. Creates the matching tag + GitHub release,
+# which triggers publish-pypi.yml (which runs on `release.types: [published]`)
+# to publish armor-mcp to PyPI. Releasing is now a side effect of merging a
+# version bump, not a separate manual step.
+#
+# Convention: tag `v<version>`, release title `v<version>` — matches every
+# prior release on this repo.
+#
+# Guardrails:
+#   - Relies on scripts/check-versions.py (already in CI) to catch mismatches
+#     between armor-mcp/pyproject.toml, armor-mcp/server.json, and
+#     .claude-plugin/marketplace.json. If those disagree, the publish-pypi.yml
+#     `check-versions` job fails and no PyPI upload happens.
+#   - Skips silently if a release for this version already exists — re-merges
+#     of the same version are not an error.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "armor-mcp/pyproject.toml"
+      - "armor-mcp/server.json"
+      - ".claude-plugin/marketplace.json"
+
+concurrency:
+  group: auto-release-armor-mcp
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Tag and release armor-mcp
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cross-check version consistency
+        run: python scripts/check-versions.py
+
+      - name: Resolve version and tag
+        id: version
+        run: |
+          set -euo pipefail
+          version=$(python -c "import tomllib,pathlib; print(tomllib.loads(pathlib.Path('armor-mcp/pyproject.toml').read_text())['project']['version'])")
+          if [ -z "$version" ]; then
+            echo "::error::Could not extract version from armor-mcp/pyproject.toml" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if release already exists
+        id: exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.tag }} already exists; nothing to do."
+            echo "already=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "already=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag and release
+        if: steps.exists.outputs.already != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "${{ steps.version.outputs.tag }}"
+          git push origin "${{ steps.version.outputs.tag }}"
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --generate-notes
+          echo "::notice::Released ${{ steps.version.outputs.tag }}; publish-pypi.yml should now fire and push to PyPI."
