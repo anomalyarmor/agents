@@ -14,6 +14,7 @@ from armor_mcp.tools import (  # noqa: F401
     freshness,
     health,
     intelligence,
+    investigations,
     quality,
     recommendations,
     referential,
