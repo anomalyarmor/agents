@@ -70,6 +70,9 @@ class TestToolRegistration:
             # Intelligence
             "ask_question",
             "generate_intelligence",
+            # Investigations (TECH-982)
+            "investigate_asset",
+            "get_investigation",
             # Lineage & Jobs
             "get_lineage",
             "job_status",
@@ -90,7 +93,7 @@ class TestToolRegistration:
             "get_api_key_info",
         ]
 
-        assert len(expected_tools) == 53
+        assert len(expected_tools) == 55
 
         registered = set(tools.keys())
         missing = set(expected_tools) - registered
