@@ -38,6 +38,12 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          # TECH-982: anomalyarmor-cli 0.6.0 (adds client.investigations) is
+          # not yet on PyPI. Install from the core feature branch so the
+          # dep resolver finds it. Once core merges and 0.6.0 publishes,
+          # this step becomes a no-op (PyPI already has the version) and
+          # should be removed in the follow-up that re-pins.
+          pip install "git+https://github.com/anomalyarmor/core.git@feature/TECH-982-evidence-capsule#subdirectory=sdk/python"
           pip install -e ".[dev]"
 
       - name: Run tests
