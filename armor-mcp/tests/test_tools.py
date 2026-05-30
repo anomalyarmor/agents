@@ -154,6 +154,8 @@ class TestQualityTools:
             table_path="public.orders",
             metric_type="row_count",
             column_name=None,
+            operating_period_mode="off",
+            operating_schedule_id=None,
         )
 
 

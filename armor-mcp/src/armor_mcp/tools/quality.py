@@ -61,6 +61,8 @@ async def create_metric(
     table_path: str,
     metric_type: str,
     column_name: str | None = None,
+    operating_period_mode: str = "off",
+    operating_schedule_id: str | None = None,
 ):
     """Create a data quality metric for a table.
 
@@ -73,6 +75,13 @@ async def create_metric(
                      "min", "max", "mean", "stddev"
         column_name: Column to monitor (required for column-level metrics like
                      null_rate, mean, etc.)
+        operating_period_mode: Operating-period awareness: "off" (pool all
+                     history, default), "schedule" (segment by
+                     operating_schedule_id), or "auto" (learn an active/dormant
+                     calendar from history so closed-hours lulls don't skew the
+                     baseline)
+        operating_schedule_id: Operating schedule UUID, required when
+                     operating_period_mode is "schedule"
     """
     client = _get_client()
     return await asyncio.to_thread(
@@ -81,6 +90,8 @@ async def create_metric(
         table_path=table_path,
         metric_type=metric_type,
         column_name=column_name,
+        operating_period_mode=operating_period_mode,
+        operating_schedule_id=operating_schedule_id,
     )
 
 
@@ -99,6 +110,8 @@ async def manage_metric(
     is_active: bool | None = None,
     capture_interval: str | None = None,
     sensitivity: float | None = None,
+    operating_period_mode: str | None = None,
+    operating_schedule_id: str | None = None,
     limit: int = 100,
 ):
     """Manage an existing metric: get details, update, delete, trigger capture, or view snapshots.
@@ -117,6 +130,9 @@ async def manage_metric(
         is_active: Enable/disable metric (for update)
         capture_interval: New capture interval (for update)
         sensitivity: Anomaly detection sensitivity 0.0-1.0 (for update)
+        operating_period_mode: Operating-period awareness (for update): "off",
+                "schedule" (uses operating_schedule_id), or "auto"
+        operating_schedule_id: Operating schedule UUID (for "schedule" mode)
         limit: Max snapshots to return (for snapshots action, default 100)
     """
     if action not in _VALID_METRIC_ACTIONS:
@@ -137,6 +153,8 @@ async def manage_metric(
             is_active=is_active,
             capture_interval=capture_interval,
             sensitivity=sensitivity,
+            operating_period_mode=operating_period_mode,
+            operating_schedule_id=operating_schedule_id,
         )
     elif action == "delete":
         return await asyncio.to_thread(client.metrics.delete, asset_id, metric_id)
@@ -192,7 +210,7 @@ async def list_validity_rules(asset_id: str, limit: int = 25):
     """
     client = _get_client()
     return await asyncio.to_thread(
-        client.validity.list_rules,
+        client.validity.list,
         asset_id=asset_id,
         limit=limit,
     )
@@ -211,6 +229,10 @@ async def create_validity_rule(
     rule_config: dict,
     name: str | None = None,
     severity: str = "error",
+    detection_mode: str = "manual",
+    sensitivity: int = 2,
+    operating_period_mode: str = "off",
+    operating_schedule_id: str | None = None,
 ):
     """Create a data validity rule for a specific column.
 
@@ -229,10 +251,18 @@ async def create_validity_rule(
                      {"min": 0, "max": 100} for range_bounds
         name: Human-readable rule name (auto-generated if omitted)
         severity: Alert severity when rule fails: "error" (default), "warning", "critical"
+        detection_mode: "manual" (fixed threshold, default) or "auto" (learn the
+                     rule's normal invalid rate and alert on anomalous spikes)
+        sensitivity: Auto-mode band width as a stddev count, 1-4 (default 2)
+        operating_period_mode: Operating-period awareness for auto mode: "off"
+                     (default), "schedule" (uses operating_schedule_id), or
+                     "auto" (learn a calendar from history)
+        operating_schedule_id: Operating schedule UUID, required when
+                     operating_period_mode is "schedule"
     """
     client = _get_client()
     return await asyncio.to_thread(
-        client.validity.create_rule,
+        client.validity.create,
         asset_id=asset_id,
         table_path=table_path,
         column_name=column_name,
@@ -240,6 +270,10 @@ async def create_validity_rule(
         rule_config=rule_config,
         name=name,
         severity=severity,
+        detection_mode=detection_mode,
+        sensitivity=sensitivity,
+        operating_period_mode=operating_period_mode,
+        operating_schedule_id=operating_schedule_id,
     )
 
 
@@ -256,9 +290,12 @@ async def manage_validity_rule(
     asset_id: str,
     rule_id: str,
     name: str | None = None,
-    rule_config: dict | None = None,
     severity: str | None = None,
     is_active: bool | None = None,
+    detection_mode: str | None = None,
+    sensitivity: int | None = None,
+    operating_period_mode: str | None = None,
+    operating_schedule_id: str | None = None,
     limit: int = 25,
 ):
     """Manage an existing validity rule: get details, update, delete, check, or view results.
@@ -275,9 +312,13 @@ async def manage_validity_rule(
         asset_id: Asset UUID (from list_assets)
         rule_id: Validity rule UUID (from list_validity_rules)
         name: New name (for update)
-        rule_config: New rule config (for update)
         severity: New severity (for update)
         is_active: Enable/disable (for update)
+        detection_mode: "manual" or "auto" (for update)
+        sensitivity: Auto-mode band width as a stddev count, 1-4 (for update)
+        operating_period_mode: Operating-period awareness (for update): "off",
+                "schedule" (uses operating_schedule_id), or "auto"
+        operating_schedule_id: Operating schedule UUID (for "schedule" mode)
         limit: Max results to return (for results action, default 25)
     """
     if action not in _VALID_VALIDITY_ACTIONS:
@@ -296,9 +337,12 @@ async def manage_validity_rule(
             asset_id=asset_id,
             rule_id=rule_id,
             name=name,
-            rule_config=rule_config,
             severity=severity,
             is_active=is_active,
+            detection_mode=detection_mode,
+            sensitivity=sensitivity,
+            operating_period_mode=operating_period_mode,
+            operating_schedule_id=operating_schedule_id,
         )
     elif action == "delete":
         return await asyncio.to_thread(client.validity.delete, asset_id, rule_id)
